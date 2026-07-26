@@ -1,0 +1,9 @@
+.env
+
+node_modules/
+.next/
+dist/
+
+__pycache__/
+
+.vscode/
