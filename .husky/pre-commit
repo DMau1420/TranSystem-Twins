@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo '✨ Enbelleciendo tu codigo ✨'
+echo '⏳ Tranqui un paso a pasito a la vez...'
+
+npx lint-staged || (
+    echo '❌ Jose Luuuuuis Fallo: ESLint/Prettier ❌'
+    echo '👀 Ojito con este error.'
+    false;
+)
+
+echo '🧪 Testeando ✌️...'
+
+npm test || (
+    echo '❌🧪 No todo sale como planeas. 🧪❌'
+    echo '👀 Ojito y recommit. GG go next'
+    false;
+)
+
+echo '✅ Sos un crack, dale pal repo mi loco. 🚀'
