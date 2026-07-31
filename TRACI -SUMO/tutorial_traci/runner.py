@@ -104,7 +104,7 @@ def run():
 def get_options():
     optParser = optparse.OptionParser()
     optParser.add_option("--nogui", action="store_true",
-                         default=False, help="run the commandline version of sumo")
+        default=False, help="run the commandline version of sumo")
     options, args = optParser.parse_args()
     return options
 
@@ -122,8 +122,6 @@ if __name__ == "__main__":
 
     # first, generate the route file for this simulation
     generate_routefile()
-
-
 
     print("Antes de iniciar SUMO")
     # this is the normal way of using traci. sumo is started as a
