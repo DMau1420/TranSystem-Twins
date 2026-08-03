@@ -14,5 +14,16 @@
 			"npx --prefix frontend eslint --fix",
 			"prettier --write"
 		]
+	},
+	"dependencies": {
+		"@geoman-io/leaflet-geoman-free": "^2.20.0",
+		"leaflet": "^1.9.4",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
+		"react-leaflet": "^5.0.0"
+	},
+	"devDependencies": {
+		"@vitejs/plugin-react": "^6.0.5",
+		"vite": "^8.2.0"
 	}
 }
