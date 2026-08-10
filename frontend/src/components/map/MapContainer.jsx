@@ -1,0 +1,128 @@
+import React, { useEffect } from 'react';
+import { MapContainer as LeafletMap, TileLayer, ZoomControl, useMap } from 'react-leaflet';
+import L from 'leaflet';
+
+import 'leaflet/dist/leaflet.css';
+import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
+import '@geoman-io/leaflet-geoman-free';
+
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+import { useMapData } from '../../context/MapDataContext';
+import { reverseGeocode } from '../../utils/geocoding';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+const DEFAULT_CENTER = [19.4326, -99.1332];
+const DEFAULT_ZOOM = 13;
+
+const GeomanControls = () => {
+  const map = useMap();
+  const { addPoint, addRoute, addZone } = useMapData();
+
+  useEffect(() => {
+    if (!map || !map.pm) return;
+
+    map.pm.addControls({
+      position: 'topleft',
+      drawMarker: true,
+      drawPolyline: true,
+      drawPolygon: true,
+      drawCircle: false,
+      drawRectangle: false,
+      editMode: true,
+      dragMode: true,
+      removalMode: true,
+    });
+
+    const handleCreate = async (e) => {
+      const { shape, layer } = e;
+      const geoJson = layer.toGeoJSON();
+
+      if (shape === 'Marker') {
+        const { lat, lng } = layer.getLatLng();
+        let streetInfo = null;
+        try {
+          streetInfo = await reverseGeocode(lat, lng);
+        } catch (err) {
+          console.error('Error en reverse geocoding:', err);
+        }
+        addPoint({
+          lat,
+          lng,
+          geoJson,
+          street: streetInfo?.street ?? null,
+          displayName: streetInfo?.displayName ?? null,
+        });
+      } else if (shape === 'Line') {
+        const latlngs = layer.getLatLngs();
+        const distanceMeters = latlngs.reduce((total, curr, idx) => {
+          if (idx === 0) return 0;
+          return total + map.distance(latlngs[idx - 1], curr);
+        }, 0);
+        addRoute({
+          coordinates: latlngs.map((p) => [p.lat, p.lng]),
+          geoJson,
+          distanceMeters,
+        });
+      } else if (shape === 'Polygon') {
+        addZone({
+          coordinates: layer.getLatLngs(),
+          geoJson,
+        });
+      }
+    };
+
+    map.on('pm:create', handleCreate);
+
+    return () => {
+      map.off('pm:create', handleCreate);
+      if (map.pm) map.pm.removeControls();
+    };
+  }, [map, addPoint, addRoute, addZone]);
+
+  return null;
+};
+
+const FlyToSearchResult = () => {
+  const map = useMap();
+  const { searchTarget } = useMapData();
+
+  useEffect(() => {
+    if (!map || !searchTarget) return;
+    map.flyTo([searchTarget.lat, searchTarget.lng], 17, { duration: 1.2 });
+  }, [map, searchTarget]);
+
+  return null;
+};
+
+export const MapContainer = () => {
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+      <LeafletMap
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM}
+        zoomControl={false}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
+        />
+        <ZoomControl position="topright" />
+        <GeomanControls />
+        <FlyToSearchResult />
+      </LeafletMap>
+    </div>
+  );
+};
+
+export default MapContainer;
