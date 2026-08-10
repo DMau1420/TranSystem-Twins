@@ -10,6 +10,9 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+import { useMapData } from '../../context/MapDataContext';
+import { reverseGeocode } from '../../utils/geocoding';
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -22,6 +25,7 @@ const DEFAULT_ZOOM = 13;
 
 const GeomanControls = () => {
   const map = useMap();
+  const { addPoint, addRoute, addZone } = useMapData();
 
   useEffect(() => {
     if (!map || !map.pm) return;
@@ -38,18 +42,63 @@ const GeomanControls = () => {
       removalMode: true,
     });
 
-    map.on('pm:create', (e) => {
+    const handleCreate = async (e) => {
       const { shape, layer } = e;
-      const geoJsonData = layer.toGeoJSON();
-      console.log(`Infraestructura agregada (${shape}):`, geoJsonData);
-    });
+      const geoJson = layer.toGeoJSON();
 
-    return () => {
-      if (map.pm) {
-        map.pm.removeControls();
+      if (shape === 'Marker') {
+        const { lat, lng } = layer.getLatLng();
+        let streetInfo = null;
+        try {
+          streetInfo = await reverseGeocode(lat, lng);
+        } catch (err) {
+          console.error('Error en reverse geocoding:', err);
+        }
+        addPoint({
+          lat,
+          lng,
+          geoJson,
+          street: streetInfo?.street ?? null,
+          displayName: streetInfo?.displayName ?? null,
+        });
+      } else if (shape === 'Line') {
+        const latlngs = layer.getLatLngs();
+        const distanceMeters = latlngs.reduce((total, curr, idx) => {
+          if (idx === 0) return 0;
+          return total + map.distance(latlngs[idx - 1], curr);
+        }, 0);
+        addRoute({
+          coordinates: latlngs.map((p) => [p.lat, p.lng]),
+          geoJson,
+          distanceMeters,
+        });
+      } else if (shape === 'Polygon') {
+        addZone({
+          coordinates: layer.getLatLngs(),
+          geoJson,
+        });
       }
     };
-  }, [map]);
+
+    map.on('pm:create', handleCreate);
+
+    return () => {
+      map.off('pm:create', handleCreate);
+      if (map.pm) map.pm.removeControls();
+    };
+  }, [map, addPoint, addRoute, addZone]);
+
+  return null;
+};
+
+const FlyToSearchResult = () => {
+  const map = useMap();
+  const { searchTarget } = useMapData();
+
+  useEffect(() => {
+    if (!map || !searchTarget) return;
+    map.flyTo([searchTarget.lat, searchTarget.lng], 17, { duration: 1.2 });
+  }, [map, searchTarget]);
 
   return null;
 };
@@ -70,6 +119,7 @@ export const MapContainer = () => {
         />
         <ZoomControl position="topright" />
         <GeomanControls />
+        <FlyToSearchResult />
       </LeafletMap>
     </div>
   );

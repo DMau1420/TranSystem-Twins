@@ -1,12 +1,15 @@
-import React from 'react';
+import { MapDataProvider } from './context/MapDataContext';
 import MapContainer from './components/map/MapContainer';
+import MapDataPanel from './components/MapDataPanel';
+import SearchBar from './components/SearchBar';
 
 function App() {
   return (
-    <main style={{ width: '100vw', height: '100vh', margin: 0, padding: 0 }}>
-      {/* Contenedor principal del Mapa Interactivo y Editor de Escenarios */}
+    <MapDataProvider>
       <MapContainer />
-    </main>
+      <SearchBar />
+      <MapDataPanel />
+    </MapDataProvider>
   );
 }
 
