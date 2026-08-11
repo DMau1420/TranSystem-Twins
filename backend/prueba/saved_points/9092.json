@@ -1,0 +1,21 @@
+{
+    "id": "9092",
+    "lat": 0.0,
+    "lng": 0.0,
+    "geoJson": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+            "type": "Point",
+            "coordinates": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                8.0
+            ]
+        }
+    },
+    "street": "ninguna",
+    "displayName": "no hay, no existe"
+}
