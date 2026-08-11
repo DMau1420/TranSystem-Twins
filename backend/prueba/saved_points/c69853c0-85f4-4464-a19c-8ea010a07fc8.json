@@ -1,0 +1,18 @@
+{
+    "id": "c69853c0-85f4-4464-a19c-8ea010a07fc8",
+    "lat": 19.44506495022048,
+    "lng": -99.23315048217775,
+    "geoJson": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+            "type": "Point",
+            "coordinates": [
+                -99.23315,
+                19.445065
+            ]
+        }
+    },
+    "street": null,
+    "displayName": "Parque de Chapultepec, Lázaro Cárdenas, Naucalpan de Juárez, Estado de México, 53530, México"
+}
