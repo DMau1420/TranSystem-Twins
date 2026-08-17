@@ -1,5 +1,6 @@
+import time
 import requests
-import time 
+
 
 def calcular_bbox(polygon):
     """Calcula bbox desde un polígono GeoJSON."""
@@ -107,7 +108,7 @@ osm_data = descargar_red(bbox)
 if osm_data:
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    nombre_archivo = f"red_vial_{timestamp}.osm"
+    nombre_archivo = f"osm_generados/red_vial_{timestamp}.osm"
 
     with open(nombre_archivo, "w", encoding="utf-8") as f:
         f.write(osm_data)
