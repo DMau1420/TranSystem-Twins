@@ -6,7 +6,7 @@ from core.database import get_db
 from schemas.sc_user import LoginUser, Token, CreateUser, UserResponse
 from services.auth_service import AuthService
 
-router = APIRouter(prefix="/auth")
+router = APIRouter(prefix="/auth", tags=["autenticación"])
 
 @router.post(
     "/register",
