@@ -30,10 +30,22 @@ def procesar_resultados(archivo):
         for v in root.findall("tripinfo"):
             espera.append(float(v.attrib["waitingTime"]))
 
+        """
         print(f"Vehículos simulados: {len(vehiculos)}")
         print(f"Tiempo promedio de recorrido: {promedio:.2f} segundos")
         print(f"Espera promedio: {sum(espera) / len(espera):.2f} segundos")
         print("="*50 + "\n")
+        """
+
+        espera_promedio  = sum(espera) / len(espera)
+
+        return {
+            "vehiculos_simulados": len(vehiculos),
+            "tiempo_promedio_recorrido": promedio,
+            "espera_promedio" : espera_promedio,
+        }
+
+    
         
     except ET.ParseError as e:
         print(f"ERROR: No se pudo parsear tripinfo.xml: {e}")

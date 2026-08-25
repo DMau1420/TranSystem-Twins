@@ -7,14 +7,100 @@ import sys
 import xml.etree.ElementTree as ET
 import time
 from utils import generar_ruta_salida
+import requests
 
 # Temporalmente desactivada hasta que ya  nos conectemos bien los 3 modulos
-"""
+
 def cargar_escenario():
+
+    """
     with open('test.json', 'r', encoding='utf-8') as archivo:
         data = json.load(archivo)
     return data
-"""
+    """
+
+    BASE_URL = "https://transystemtwins.com"
+    res = requests.get(f"{BASE_URL}/get-sumo-json")
+    escenario = res.json()
+    return escenario
+
+def consulta_overpass(bbox, intentos_max=3):
+    """Descarga la red vial en formato XML (.osm) garantizando geometrías completas.
+
+    Maneja timeouts y reintentos en servidores de respaldo.
+    """
+    min_lat, min_lon, max_lat, max_lon = bbox
+
+    # Query Overpass 
+    query = f"""
+    [out:xml][timeout:90];
+    (
+    way["highway"]({min_lat},{min_lon},{max_lat},{max_lon});
+    );
+    (._; >;);
+    out body;
+    """
+
+    # Lista de servidores 
+    servidores = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    ]
+
+    headers = {
+        "User-Agent": "TranSytemTwins/1.0 (github.com/DanielMtz)",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    for intento in range(1, intentos_max + 1):
+        # Alterna servidor en cada intento si hay problemas
+        url_api = servidores[(intento - 1) % len(servidores)]
+
+        try:
+            print(
+                f" Intento {intento}/{intentos_max} conectando a {url_api}..."
+            )
+
+            response = requests.post(
+                url_api,
+                data={"data": query.strip()},
+                timeout=100,
+                headers=headers,
+            )
+
+            if response.status_code == 200:
+                return response.text
+            elif response.status_code in (429, 504):
+                print(
+                    f" Servidor saturado (HTTP {response.status_code}). Esperando antes de reintentar..."
+                )
+                time.sleep(5 * intento)  
+            else:
+                print(f" Error devuelto por la API: HTTP {response.status_code}")
+                break
+
+        except requests.exceptions.Timeout:
+            print(" Timeout de red alcanzado en Python. Reintentando...")
+            time.sleep(3)
+        except requests.exceptions.RequestException as e:
+            print(f" Error de conexión: {e}")
+            break
+
+    return None
+
+
+def descargar_red(bbox, archivo_osm = "red_vial.osm"):
+    osm_data = consulta_overpass(bbox)
+
+    if osm_data:
+
+        ruta_osm = generar_ruta_salida(archivo_osm)
+
+        with open(ruta_osm, "w", encoding="utf-8") as f:
+            f.write(osm_data)
+        print("¡Descargado!")
+
+        return ruta_osm
 
 def conversor_osm_to_netxml(netconvertBinary, archivo_osm, archivo_red_vial = "map_net.net.xml"):
 
@@ -44,7 +130,7 @@ def conversor_osm_to_netxml(netconvertBinary, archivo_osm, archivo_red_vial = "m
         print(e.stderr, file=sys.stderr)
         return None
 
-def generar_rutas_aleatorias(random_trips,archivo_red_vial, nombre_archivo= "cross.rou.xml" ):
+def generar_rutas_aleatorias(random_trips,archivo_red_vial,demanda_vehicular, nombre_archivo= "cross.rou.xml"):
 
     ruta_salida = generar_ruta_salida(nombre_archivo)
 
@@ -56,7 +142,7 @@ def generar_rutas_aleatorias(random_trips,archivo_red_vial, nombre_archivo= "cro
         "--route-file", ruta_salida,
         "--validate",           # Valida rutas
         "--random",             
-        "--flows", "100"         
+        "--flows", str(demanda_vehicular)         
     ]
     
     try:

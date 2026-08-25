@@ -7,3 +7,11 @@ dist/
 __pycache__/
 
 .vscode/
+
+
+# Archivos generados por SUMO
+*.net.xml
+*.osm
+*.rou.xml
+*.sumocfg
+*.tripinfo.xml
