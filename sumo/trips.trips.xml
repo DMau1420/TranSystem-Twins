@@ -1,114 +1,113 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-08-24 22:19:46.695470 by Eclipse SUMO randomTrips.py v1_27_1+0000-7717f2379d9
+<!-- generated on 2026-08-24 23:04:15.003640 by Eclipse SUMO randomTrips.py v1_27_1+0000-7717f2379d9
 <configuration>
-    <net-file value="C:\Users\Daniel Mtz H\OneDrive\Escritorio\RESIDENCIAS_IMT\TranSystem-Twins\sumo\data\20260824_221944_map_net.net.xml"/>
-    <route-file value="C:\Users\Daniel Mtz H\OneDrive\Escritorio\RESIDENCIAS_IMT\TranSystem-Twins\sumo\data\20260824_221945_cross.rou.xml"/>
+    <net-file value="C:\Users\Daniel Mtz H\OneDrive\Escritorio\RESIDENCIAS_IMT\TranSystem-Twins\sumo\data\20260824_230409_map_net.net.xml"/>
+    <route-file value="C:\Users\Daniel Mtz H\OneDrive\Escritorio\RESIDENCIAS_IMT\TranSystem-Twins\sumo\data\20260824_230411_cross.rou.xml"/>
     <random value="True"/>
-    <period value="5.0"/>
-    <flows value="100"/>
+    <period value="36.0"/>
 </configuration>
 -->
 
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
-    <flow id="0" begin="0" end="3600" period="500" from="24690661" to="569074615#2"/>
-    <flow id="1" begin="0" end="3600" period="500" from="1156985012#1" to="569074613#0"/>
-    <flow id="2" begin="0" end="3600" period="500" from="1152827744#2" to="569074602#1"/>
-    <flow id="3" begin="0" end="3600" period="500" from="1156985011#1" to="569074622#1"/>
-    <flow id="4" begin="0" end="3600" period="500" from="569414950" to="569074610#0"/>
-    <flow id="5" begin="0" end="3600" period="500" from="128573542#3" to="569074622#1"/>
-    <flow id="6" begin="0" end="3600" period="500" from="569074622#1" to="569074602#1"/>
-    <flow id="7" begin="0" end="3600" period="500" from="1156985012#0" to="569074610#1"/>
-    <flow id="8" begin="0" end="3600" period="500" from="25207618" to="569074602#5"/>
-    <flow id="9" begin="0" end="3600" period="500" from="76405199#1" to="76405199#2"/>
-    <flow id="10" begin="0" end="3600" period="500" from="128573543#0" to="1156985011#1"/>
-    <flow id="11" begin="0" end="3600" period="500" from="569074589#1" to="569074600#1"/>
-    <flow id="12" begin="0" end="3600" period="500" from="569074615#2" to="24690897"/>
-    <flow id="13" begin="0" end="3600" period="500" from="569074589#3" to="1152827744#0"/>
-    <flow id="14" begin="0" end="3600" period="500" from="1173786631#0" to="24690604#0"/>
-    <flow id="15" begin="0" end="3600" period="500" from="128573542#0" to="569074602#5"/>
-    <flow id="16" begin="0" end="3600" period="500" from="569074626" to="569074602#4"/>
-    <flow id="17" begin="0" end="3600" period="500" from="128573543#2" to="617633716#5"/>
-    <flow id="18" begin="0" end="3600" period="500" from="1152827744#1" to="569074603#1"/>
-    <flow id="19" begin="0" end="3600" period="500" from="25207618" to="24690604#1"/>
-    <flow id="20" begin="0" end="3600" period="500" from="569074615#0" to="569074615#1"/>
-    <flow id="21" begin="0" end="3600" period="500" from="569074602#0" to="24690604#1"/>
-    <flow id="22" begin="0" end="3600" period="500" from="128573542#2" to="1173786631#0"/>
-    <flow id="23" begin="0" end="3600" period="500" from="128573543#1" to="569074602#0"/>
-    <flow id="24" begin="0" end="3600" period="500" from="128573542#0" to="569074602#0"/>
-    <flow id="25" begin="0" end="3600" period="500" from="128573542#2" to="617633716#2"/>
-    <flow id="26" begin="0" end="3600" period="500" from="569074615#0" to="617633716#5"/>
-    <flow id="27" begin="0" end="3600" period="500" from="128573543#2" to="569074602#5"/>
-    <flow id="28" begin="0" end="3600" period="500" from="24690897" to="617633716#2"/>
-    <flow id="29" begin="0" end="3600" period="500" from="569074589#0" to="617633716#5"/>
-    <flow id="30" begin="0" end="3600" period="500" from="569074589#0" to="25208158#2"/>
-    <flow id="31" begin="0" end="3600" period="500" from="569074613#0" to="569074602#4"/>
-    <flow id="32" begin="0" end="3600" period="500" from="1156985012#0" to="617633716#1"/>
-    <flow id="33" begin="0" end="3600" period="500" from="569074626" to="569074622#1"/>
-    <flow id="34" begin="0" end="3600" period="500" from="1156985011#1" to="1156985011#1"/>
-    <flow id="35" begin="0" end="3600" period="500" from="569074589#3" to="569074603#1"/>
-    <flow id="36" begin="0" end="3600" period="500" from="569074589#0" to="569074602#1"/>
-    <flow id="37" begin="0" end="3600" period="500" from="24690897" to="569074602#0"/>
-    <flow id="38" begin="0" end="3600" period="500" from="128573543#2" to="1173786631#0"/>
-    <flow id="39" begin="0" end="3600" period="500" from="1156985011#0" to="76405199#0"/>
-    <flow id="40" begin="0" end="3600" period="500" from="569074602#4" to="569074602#5"/>
-    <flow id="41" begin="0" end="3600" period="500" from="569074615#0" to="1156985012#1"/>
-    <flow id="42" begin="0" end="3600" period="500" from="569074613#0" to="569074602#0"/>
-    <flow id="43" begin="0" end="3600" period="500" from="569074602#2" to="569074602#2"/>
-    <flow id="44" begin="0" end="3600" period="500" from="569074615#1" to="569074602#2"/>
-    <flow id="45" begin="0" end="3600" period="500" from="569074589#1" to="1156985012#0"/>
-    <flow id="46" begin="0" end="3600" period="500" from="569074589#3" to="569074602#5"/>
-    <flow id="47" begin="0" end="3600" period="500" from="569074589#1" to="25207618"/>
-    <flow id="48" begin="0" end="3600" period="500" from="569074589#2" to="569074602#1"/>
-    <flow id="49" begin="0" end="3600" period="500" from="1152827744#1" to="569074615#2"/>
-    <flow id="50" begin="0" end="3600" period="500" from="569074600#1" to="569074615#0"/>
-    <flow id="51" begin="0" end="3600" period="500" from="25208163#0" to="852971448"/>
-    <flow id="52" begin="0" end="3600" period="500" from="1152827744#2" to="24690897"/>
-    <flow id="53" begin="0" end="3600" period="500" from="1156985011#1" to="617633716#1"/>
-    <flow id="54" begin="0" end="3600" period="500" from="1156985012#1" to="617633716#6"/>
-    <flow id="55" begin="0" end="3600" period="500" from="569074589#0" to="25208158#3"/>
-    <flow id="56" begin="0" end="3600" period="500" from="569074589#1" to="25208158#1"/>
-    <flow id="57" begin="0" end="3600" period="500" from="1152827744#2" to="1156985012#0"/>
-    <flow id="58" begin="0" end="3600" period="500" from="569074626" to="569074602#5"/>
-    <flow id="59" begin="0" end="3600" period="500" from="569414954" to="569074613#0"/>
-    <flow id="60" begin="0" end="3600" period="500" from="24690628#0" to="24690604#1"/>
-    <flow id="61" begin="0" end="3600" period="500" from="24690628#0" to="569074602#2"/>
-    <flow id="62" begin="0" end="3600" period="500" from="569414954" to="1156985011#1"/>
-    <flow id="63" begin="0" end="3600" period="500" from="569074589#1" to="569074602#1"/>
-    <flow id="64" begin="0" end="3600" period="500" from="569074622#1" to="1156985012#0"/>
-    <flow id="65" begin="0" end="3600" period="500" from="569074589#3" to="1156985012#1"/>
-    <flow id="66" begin="0" end="3600" period="500" from="24690661" to="569074615#2"/>
-    <flow id="67" begin="0" end="3600" period="500" from="1156985012#1" to="569074613#0"/>
-    <flow id="68" begin="0" end="3600" period="500" from="1152827744#2" to="569074602#1"/>
-    <flow id="69" begin="0" end="3600" period="500" from="1156985011#1" to="569074622#1"/>
-    <flow id="70" begin="0" end="3600" period="500" from="569414950" to="569074610#0"/>
-    <flow id="71" begin="0" end="3600" period="500" from="128573542#3" to="569074622#1"/>
-    <flow id="72" begin="0" end="3600" period="500" from="569074622#1" to="569074602#1"/>
-    <flow id="73" begin="0" end="3600" period="500" from="1156985012#0" to="569074610#1"/>
-    <flow id="74" begin="0" end="3600" period="500" from="25207618" to="569074602#5"/>
-    <flow id="75" begin="0" end="3600" period="500" from="76405199#1" to="76405199#2"/>
-    <flow id="76" begin="0" end="3600" period="500" from="128573543#0" to="1156985011#1"/>
-    <flow id="77" begin="0" end="3600" period="500" from="569074589#1" to="569074600#1"/>
-    <flow id="78" begin="0" end="3600" period="500" from="569074615#2" to="24690897"/>
-    <flow id="79" begin="0" end="3600" period="500" from="569074589#3" to="1152827744#0"/>
-    <flow id="80" begin="0" end="3600" period="500" from="1173786631#0" to="24690604#0"/>
-    <flow id="81" begin="0" end="3600" period="500" from="128573542#0" to="569074602#5"/>
-    <flow id="82" begin="0" end="3600" period="500" from="569074626" to="569074602#4"/>
-    <flow id="83" begin="0" end="3600" period="500" from="128573543#2" to="617633716#5"/>
-    <flow id="84" begin="0" end="3600" period="500" from="1152827744#1" to="569074603#1"/>
-    <flow id="85" begin="0" end="3600" period="500" from="25207618" to="24690604#1"/>
-    <flow id="86" begin="0" end="3600" period="500" from="569074615#0" to="569074615#1"/>
-    <flow id="87" begin="0" end="3600" period="500" from="569074602#0" to="24690604#1"/>
-    <flow id="88" begin="0" end="3600" period="500" from="128573542#2" to="1173786631#0"/>
-    <flow id="89" begin="0" end="3600" period="500" from="128573543#1" to="569074602#0"/>
-    <flow id="90" begin="0" end="3600" period="500" from="128573542#0" to="569074602#0"/>
-    <flow id="91" begin="0" end="3600" period="500" from="128573542#2" to="617633716#2"/>
-    <flow id="92" begin="0" end="3600" period="500" from="569074615#0" to="617633716#5"/>
-    <flow id="93" begin="0" end="3600" period="500" from="128573543#2" to="569074602#5"/>
-    <flow id="94" begin="0" end="3600" period="500" from="24690897" to="617633716#2"/>
-    <flow id="95" begin="0" end="3600" period="500" from="569074589#0" to="617633716#5"/>
-    <flow id="96" begin="0" end="3600" period="500" from="569074589#0" to="25208158#2"/>
-    <flow id="97" begin="0" end="3600" period="500" from="569074613#0" to="569074602#4"/>
-    <flow id="98" begin="0" end="3600" period="500" from="1156985012#0" to="617633716#1"/>
-    <flow id="99" begin="0" end="3600" period="500" from="569074626" to="569074622#1"/>
+    <trip id="0" depart="0.00" from="33064003#0" to="126678367#10"/>
+    <trip id="1" depart="36.00" from="34360313#0" to="33064064#5"/>
+    <trip id="2" depart="72.00" from="33064033#3" to="-126705606"/>
+    <trip id="3" depart="108.00" from="848655983#11" to="856441282"/>
+    <trip id="4" depart="144.00" from="33064018#11" to="33832691#2"/>
+    <trip id="5" depart="180.00" from="-126678425#7" to="238065707#12"/>
+    <trip id="6" depart="216.00" from="33544176" to="33063998#4"/>
+    <trip id="7" depart="252.00" from="8837240" to="34359840#0"/>
+    <trip id="8" depart="288.00" from="848172901#0" to="126678374#4"/>
+    <trip id="9" depart="324.00" from="654746921#3" to="844044046"/>
+    <trip id="10" depart="360.00" from="34359838#3" to="33064028#0"/>
+    <trip id="11" depart="396.00" from="182917059#3" to="-126678329"/>
+    <trip id="12" depart="432.00" from="-33064078#1" to="-616307742#1"/>
+    <trip id="13" depart="468.00" from="855471896#1" to="830464086#2"/>
+    <trip id="14" depart="504.00" from="126678406#1" to="-856441275"/>
+    <trip id="15" depart="540.00" from="1373930207#1" to="-654582654#0"/>
+    <trip id="16" depart="576.00" from="-335977853#3" to="8640976#12"/>
+    <trip id="17" depart="612.00" from="618981589#11" to="679671533#3"/>
+    <trip id="18" depart="648.00" from="34360288#1" to="-1373930206#0"/>
+    <trip id="19" depart="684.00" from="126678367#5" to="33064027#3"/>
+    <trip id="20" depart="720.00" from="848655983#7" to="843638731"/>
+    <trip id="21" depart="756.00" from="-126678497#3" to="857285448#9"/>
+    <trip id="22" depart="792.00" from="238065707#3" to="33544202"/>
+    <trip id="23" depart="828.00" from="843638734#1" to="126678348#7"/>
+    <trip id="24" depart="864.00" from="-396112538#2" to="335978806#1"/>
+    <trip id="25" depart="900.00" from="852909403#2" to="33064063#1"/>
+    <trip id="26" depart="936.00" from="830502597#1" to="126678331#7"/>
+    <trip id="27" depart="972.00" from="33063991#2" to="290242818#1"/>
+    <trip id="28" depart="1008.00" from="126678311#9" to="618981589#12"/>
+    <trip id="29" depart="1044.00" from="679671533#3" to="126678331#3"/>
+    <trip id="30" depart="1080.00" from="-679636210" to="33064063#3"/>
+    <trip id="31" depart="1116.00" from="-654582654#0" to="128255303#10"/>
+    <trip id="32" depart="1152.00" from="830464087#2" to="33832691#1"/>
+    <trip id="33" depart="1188.00" from="126678425#4" to="-182934818#1"/>
+    <trip id="34" depart="1224.00" from="33072318#10" to="33063998#1"/>
+    <trip id="35" depart="1260.00" from="-126678363#2" to="34359831#1"/>
+    <trip id="36" depart="1296.00" from="82313137#0" to="360617975#1"/>
+    <trip id="37" depart="1332.00" from="830464086#5" to="126678437"/>
+    <trip id="38" depart="1368.00" from="616307747#2" to="-126678311#3"/>
+    <trip id="39" depart="1404.00" from="33064045#2" to="883981108"/>
+    <trip id="40" depart="1440.00" from="360617975#4" to="846575998#2"/>
+    <trip id="41" depart="1476.00" from="139272992#2" to="874643906"/>
+    <trip id="42" depart="1512.00" from="-33063998#0" to="618981568#6"/>
+    <trip id="43" depart="1548.00" from="82325475" to="830502593#1"/>
+    <trip id="44" depart="1584.00" from="-654574530" to="128255284#2"/>
+    <trip id="45" depart="1620.00" from="126678467#1" to="33544198#1"/>
+    <trip id="46" depart="1656.00" from="34360291#4" to="126678502#2"/>
+    <trip id="47" depart="1692.00" from="852909404#3" to="126678311#7"/>
+    <trip id="48" depart="1728.00" from="126678504#4" to="126678467#10"/>
+    <trip id="49" depart="1764.00" from="33418179#7" to="-830502984"/>
+    <trip id="50" depart="1800.00" from="128255303#8" to="126678504#2"/>
+    <trip id="51" depart="1836.00" from="830809151#0" to="-654746921#8"/>
+    <trip id="52" depart="1872.00" from="33072316#0" to="33064027#0"/>
+    <trip id="53" depart="1908.00" from="1172288767#3" to="33064027#4"/>
+    <trip id="54" depart="1944.00" from="856441281" to="-33064029#2"/>
+    <trip id="55" depart="1980.00" from="33544202" to="126678408#5"/>
+    <trip id="56" depart="2016.00" from="139272992#5" to="139272992#0"/>
+    <trip id="57" depart="2052.00" from="-654574526" to="-34359838#3"/>
+    <trip id="58" depart="2088.00" from="660349504#1" to="33063987#0"/>
+    <trip id="59" depart="2124.00" from="33064033#2" to="-33064029#2"/>
+    <trip id="60" depart="2160.00" from="33064036#2" to="830502595#2"/>
+    <trip id="61" depart="2196.00" from="843638732" to="654751421#6"/>
+    <trip id="62" depart="2232.00" from="618981584#12" to="33064063#1"/>
+    <trip id="63" depart="2268.00" from="843638730#1" to="803436192#2"/>
+    <trip id="64" depart="2304.00" from="655072945" to="126678308#3"/>
+    <trip id="65" depart="2340.00" from="24992905#2" to="33064064#0"/>
+    <trip id="66" depart="2376.00" from="33418179#13" to="33064033#3"/>
+    <trip id="67" depart="2412.00" from="616307744#3" to="128255303#10"/>
+    <trip id="68" depart="2448.00" from="33064050#1" to="34360319#0"/>
+    <trip id="69" depart="2484.00" from="82313137#0" to="33064064#0"/>
+    <trip id="70" depart="2520.00" from="126678331#3" to="33072318#2"/>
+    <trip id="71" depart="2556.00" from="126678406#2" to="618981584#14"/>
+    <trip id="72" depart="2592.00" from="618981589#13" to="618981581#2"/>
+    <trip id="73" depart="2628.00" from="618981584#14" to="33418179#17"/>
+    <trip id="74" depart="2664.00" from="853606244#1" to="34359861#0"/>
+    <trip id="75" depart="2700.00" from="846564055" to="-34359812#0"/>
+    <trip id="76" depart="2736.00" from="-33072345" to="82325474#0"/>
+    <trip id="77" depart="2772.00" from="33832691#3" to="126678458#1"/>
+    <trip id="78" depart="2808.00" from="853606244#1" to="126678374#2"/>
+    <trip id="79" depart="2844.00" from="844055613#0" to="335978806#0"/>
+    <trip id="80" depart="2880.00" from="737744628#1" to="8119476#1"/>
+    <trip id="81" depart="2916.00" from="34360291#0" to="34360289#1"/>
+    <trip id="82" depart="2952.00" from="24992905#0" to="853606244#3"/>
+    <trip id="83" depart="2988.00" from="-654751423" to="-126678425#5"/>
+    <trip id="84" depart="3024.00" from="618981568#11" to="-126678401"/>
+    <trip id="85" depart="3060.00" from="855596628" to="-126678425#7"/>
+    <trip id="86" depart="3096.00" from="830464087#0" to="-1373930206#1"/>
+    <trip id="87" depart="3132.00" from="34359840#4" to="126678425#7"/>
+    <trip id="88" depart="3168.00" from="33064041" to="360617975#1"/>
+    <trip id="89" depart="3204.00" from="848655983#1" to="875024763#0"/>
+    <trip id="90" depart="3240.00" from="-33064049#1" to="-830464086#3"/>
+    <trip id="91" depart="3276.00" from="830464087#0" to="844068535#0"/>
+    <trip id="92" depart="3312.00" from="-325146732#1" to="182934772#0"/>
+    <trip id="93" depart="3348.00" from="855471896#2" to="844038945"/>
+    <trip id="94" depart="3384.00" from="293066383#0" to="33064012#3"/>
+    <trip id="95" depart="3420.00" from="126678367#7" to="33064018#11"/>
+    <trip id="96" depart="3456.00" from="34360293#2" to="24984048"/>
+    <trip id="97" depart="3492.00" from="335977853#0" to="126678430#2"/>
+    <trip id="98" depart="3528.00" from="126678329" to="33064033#0"/>
+    <trip id="99" depart="3564.00" from="126678467#6" to="-660349504#1"/>
 </routes>

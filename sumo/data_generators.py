@@ -19,8 +19,7 @@ def cargar_escenario():
     return data
     """
 
-    BASE_URL = "https://transystemtwins.com"
-    res = requests.get(f"{BASE_URL}/get-sumo-json")
+    res = requests.get("https://transystemtwins.com/points/prueba")
     escenario = res.json()
     return escenario
 
