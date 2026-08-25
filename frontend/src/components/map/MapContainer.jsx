@@ -75,7 +75,7 @@ const GeomanControls = () => {
       } else if (shape === 'Polygon') {
         addZone({
           coordinates: layer.getLatLngs(),
-          geoJson,
+          geoJson: geoJson.geometry, // { type: "Polygon", coordinates: [[...]] }
         });
       }
     };
