@@ -134,17 +134,21 @@ def generar_rutas_aleatorias(random_trips,archivo_red_vial,demanda_vehicular, no
 
     ruta_salida = generar_ruta_salida(nombre_archivo)
 
+    begin_time = 0
+    tiempo_simulacion = 3600
+    #  Calcular el periodo para tener exactamente 'demanda_vehicular' vehículos
+    periodo = tiempo_simulacion / demanda_vehicular
+    
     comando = [
         "python", random_trips,
         "-n", archivo_red_vial,
-        "-e", "3600",           # 1 hora
-        "-p", "5.0",            # Cada 5 s
+        "-b", str(begin_time),        
+        "-e", str(tiempo_simulacion),   
+        "-p", str(periodo),             
         "--route-file", ruta_salida,
-        "--validate",           # Valida rutas
-        "--random",             
-        "--flows", str(demanda_vehicular)         
+        "--validate",                   
+        "--random"                       
     ]
-    
     try:
         subprocess.run(comando, check=True)
         print(f" Rutas vehiculares generadas en : {ruta_salida}")
