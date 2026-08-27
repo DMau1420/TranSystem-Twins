@@ -4,6 +4,7 @@ import { MapDataProvider } from './context/MapDataContext';
 import MapContainer from './components/map/MapContainer';
 import MapDataPanel from './components/MapDataPanel';
 import SearchBar from './components/SearchBar';
+import Sidebar from './components/sidebar/Sidebar';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
@@ -36,11 +37,29 @@ function PublicRoute({ children }) {
 }
 
 function AppLayout() {
+  const { user } = useAuth();
+
   return (
     <MapDataProvider>
-      <MapContainer />
-      <SearchBar />
-      <MapDataPanel />
+      <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+        <Sidebar
+          active="mapa"
+          onNavigate={(id) => {
+            if (id === 'perfil') return; // ajusta cuando exista la página de perfil
+            // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
+            console.log('nav ->', id);
+          }}
+          user={{
+            name: user?.name ?? user?.username ?? 'Invitado',
+            role: user?.role ?? 'VIEWER',
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          <MapContainer />
+          <SearchBar />
+          <MapDataPanel />
+        </div>
+      </div>
     </MapDataProvider>
   );
 }

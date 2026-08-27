@@ -1,95 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMapData } from '../context/MapDataContext';
 import { searchAddress } from '../utils/geocoding';
-import { tokens } from '../styles/tokens';
-
-const wrapperStyle = {
-  position: 'absolute',
-  top: 16,
-  left: '50%',
-  transform: 'translateX(-50%)',
-  zIndex: 1000,
-  width: 'min(480px, calc(100vw - 220px))',
-  fontFamily: tokens.font.ui,
-};
-
-const pillStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  background: tokens.color.surface,
-  borderRadius: tokens.radius.pill,
-  boxShadow: tokens.shadow.card,
-  padding: '6px 8px 6px 16px',
-};
-
-const inputStyle = {
-  flex: 1,
-  border: 'none',
-  outline: 'none',
-  fontFamily: tokens.font.ui,
-  fontSize: 14,
-  color: tokens.color.ink,
-  background: 'transparent',
-};
-
-const dividerStyle = {
-  width: 1,
-  height: 22,
-  background: tokens.color.border,
-};
-
-const iconButtonStyle = (active) => ({
-  width: 36,
-  height: 36,
-  minWidth: 36,
-  borderRadius: '50%',
-  border: 'none',
-  background: active ? tokens.color.accentSoft : 'transparent',
-  color: tokens.color.accent,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-});
-
-const listStyle = {
-  listStyle: 'none',
-  margin: 0,
-  marginTop: 8,
-  padding: 0,
-  background: tokens.color.surface,
-  borderRadius: tokens.radius.lg,
-  boxShadow: tokens.shadow.card,
-  overflow: 'hidden',
-};
-
-const itemStyle = {
-  padding: '10px 16px',
-  fontSize: 13,
-  color: tokens.color.ink,
-  cursor: 'pointer',
-  borderBottom: `1px solid ${tokens.color.border}`,
-};
-
-const statusTextStyle = {
-  fontSize: 12,
-  color: tokens.color.inkMuted,
-  marginTop: 6,
-  paddingLeft: 16,
-};
-
-const errorTextStyle = {
-  fontSize: 12,
-  color: tokens.color.danger,
-  background: tokens.color.dangerSoft,
-  borderRadius: tokens.radius.sm,
-  padding: '6px 10px',
-  marginTop: 6,
-};
+import './SearchBar.css';
 
 const SearchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={tokens.color.inkMuted} strokeWidth="2">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <circle cx="11" cy="11" r="7" />
     <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
@@ -103,7 +18,7 @@ const LocateIcon = ({ spinning }) => (
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
-    style={spinning ? { animation: 'ts-spin 0.9s linear infinite' } : undefined}
+    className={spinning ? 'tst-search__locate-icon is-spinning' : 'tst-search__locate-icon'}
   >
     <circle cx="12" cy="12" r="3" />
     <line x1="12" y1="2" x2="12" y2="5" />
@@ -180,21 +95,22 @@ export const SearchBar = () => {
   };
 
   return (
-    <div style={wrapperStyle}>
-      <style>{`@keyframes ts-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-
-      <div style={pillStyle}>
-        <SearchIcon />
+    <div className="tst-search">
+      <div className="tst-search__pill">
+        <span className="tst-search__icon">
+          <SearchIcon />
+        </span>
         <input
-          style={inputStyle}
+          className="tst-search__input"
           type="text"
           placeholder="Buscar calle o dirección en..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <div style={dividerStyle} />
+        <div className="tst-search__divider" />
         <button
-          style={iconButtonStyle(locating)}
+          type="button"
+          className={`tst-search__locate-btn ${locating ? 'is-active' : ''}`}
           onClick={handleLocate}
           disabled={locating}
           title="Ir a mi ubicación actual"
@@ -203,17 +119,13 @@ export const SearchBar = () => {
         </button>
       </div>
 
-      {loading && <div style={statusTextStyle}>Buscando…</div>}
-      {locateError && <div style={errorTextStyle}>{locateError}</div>}
+      {loading && <div className="tst-search__status">Buscando…</div>}
+      {locateError && <div className="tst-search__error">{locateError}</div>}
 
       {results.length > 0 && (
-        <ul style={listStyle}>
+        <ul className="tst-search__results">
           {results.map((r, idx) => (
-            <li
-              key={idx}
-              style={{ ...itemStyle, borderBottom: idx === results.length - 1 ? 'none' : itemStyle.borderBottom }}
-              onClick={() => handleSelect(r)}
-            >
+            <li key={idx} className="tst-search__result-item" onClick={() => handleSelect(r)}>
               {r.displayName}
             </li>
           ))}

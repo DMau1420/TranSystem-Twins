@@ -103,9 +103,36 @@ const FlyToSearchResult = () => {
   return null;
 };
 
+/**
+ * Vuelve a medir el mapa cuando su contenedor cambia de tamaño.
+ * Necesario porque Leaflet cachea el tamaño del div al montarse y
+ * no reacciona solo cuando, por ejemplo, el Sidebar se colapsa/expande
+ * y el flex-item del mapa cambia de ancho.
+ */
+const InvalidateOnResize = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+
+    // Ajuste inmediato tras montar (por si el layout ya tenía un tamaño distinto)
+    map.invalidateSize();
+
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+};
+
 export const MapContainer = () => {
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <LeafletMap
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
@@ -120,6 +147,7 @@ export const MapContainer = () => {
         <ZoomControl position="topright" />
         <GeomanControls />
         <FlyToSearchResult />
+        <InvalidateOnResize />
       </LeafletMap>
     </div>
   );
