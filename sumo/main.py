@@ -87,7 +87,7 @@ def main():
             **indicadores
         }
 
-        BASE_URL = "https://transystemtwins.com"
+        BASE_URL ="localhost"
         respuesta = requests.post(f"{BASE_URL}/resultado-sumo", json=payload)
         print(f"Resultado enviado, status: {respuesta.status_code}")
 

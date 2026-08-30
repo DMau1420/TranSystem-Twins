@@ -19,7 +19,7 @@ def cargar_escenario():
     return data
     """
 
-    res = requests.get("https://transystemtwins.com/points/prueba")
+    res = requests.get("localhost/points/prueba")
     escenario = res.json()
     return escenario
 
