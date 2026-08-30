@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useMapData } from '../context/MapDataContext';
 import { tokens } from '../styles/tokens';
+import { createPoints } from '../api/mapApi';
+import { StepperInput } from './common/StepperInput';
 
 const panelStyle = {
   position: 'absolute',
@@ -68,7 +70,7 @@ const sectionTitleStyle = {
   color: tokens.color.inkMuted,
 };
 
-const itemRow = (accentColor) => ({
+const itemRow = () => ({
   display: 'flex',
   borderBottom: `1px solid ${tokens.color.border}`,
 });
@@ -126,7 +128,49 @@ const jsonBoxStyle = {
   wordBreak: 'break-word',
 };
 
-const ListView = ({ points, routes, zones, removeFeature }) => (
+const saveBarStyle = {
+  padding: 12,
+  borderBottom: `1px solid ${tokens.color.border}`,
+};
+
+const saveButtonStyle = (disabled) => ({
+  width: '100%',
+  padding: '10px 0',
+  background: disabled ? tokens.color.border : tokens.color.accent,
+  color: tokens.color.surface,
+  border: 'none',
+  borderRadius: tokens.radius.sm,
+  cursor: disabled ? 'default' : 'pointer',
+  fontFamily: tokens.font.ui,
+  fontSize: 13,
+  fontWeight: 600,
+});
+
+const saveStatusStyle = (kind) => ({
+  marginTop: 8,
+  fontSize: 11.5,
+  color: kind === 'error' ? tokens.color.danger : tokens.color.accentDark,
+  background: kind === 'error' ? tokens.color.dangerSoft : tokens.color.accentSoft,
+  borderRadius: tokens.radius.sm,
+  padding: '6px 10px',
+});
+
+// Convierte los puntos del contexto a la forma que espera PointsPayload.
+// ⚠️ Ajustar campos cuando se confirme el schema real del backend.
+function buildPointsPayload(points) {
+  return {
+    points: points.map((p) => ({
+      id: p.id,
+      lat: p.lat,
+      lng: p.lng,
+      geoJson: p.geoJson,
+      street: p.street ?? null,
+      displayName: p.displayName ?? null,
+    })),
+  };
+}
+
+const ListView = ({ points, routes, zones, removeFeature, updateZone }) => (
   <>
     <div style={sectionTitleStyle}>Puntos · {points.length}</div>
     {points.length === 0 && <div style={emptyStateStyle}>Ningún punto marcado todavía.</div>}
@@ -164,6 +208,20 @@ const ListView = ({ points, routes, zones, removeFeature }) => (
         <div style={itemBodyStyle}>
           <button style={removeButtonStyle} onClick={() => removeFeature(z.id)}>✕</button>
           <span style={coordTextStyle}>Zona #{z.id.slice(0, 8)}</span>
+          <div style={{ marginTop: 8 }}>
+            <StepperInput
+              label="Vehículos por hora"
+              value={z.vehiculos_por_hora ?? 0}
+              onChange={(valOrFn) => {
+                const newVal = typeof valOrFn === 'function'
+                  ? valOrFn(z.vehiculos_por_hora ?? 0)
+                  : valOrFn;
+                updateZone(z.id, 'vehiculos_por_hora', newVal);
+              }}
+              min={0}
+              max={99999}
+            />
+          </div>
         </div>
       </div>
     ))}
@@ -197,8 +255,30 @@ const JsonView = ({ points, routes, zones }) => {
 export const MapDataPanel = () => {
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState('list');
-  const { points, routes, zones, removeFeature } = useMapData();
+  const [saveState, setSaveState] = useState('idle'); // idle | saving | success | error
+  const [saveMessage, setSaveMessage] = useState('');
+  const { points, routes, zones, removeFeature, updateZone } = useMapData();
   const total = points.length + routes.length + zones.length;
+
+  const handleSave = async () => {
+    if (points.length === 0) return;
+
+    setSaveState('saving');
+    setSaveMessage('');
+
+    try {
+      const payload = buildPointsPayload(points);
+      await createPoints(payload);
+      setSaveState('success');
+      setSaveMessage(`Se guardaron ${points.length} punto(s) en el backend.`);
+    } catch (err) {
+      console.error('Error guardando puntos:', err);
+      setSaveState('error');
+      setSaveMessage(
+        `No se pudo guardar: ${err.message}. Revisá que el backend esté corriendo y que el formato coincida.`
+      );
+    }
+  };
 
   return (
     <>
@@ -208,13 +288,26 @@ export const MapDataPanel = () => {
 
       {open && (
         <div style={panelStyle}>
+          <div style={saveBarStyle}>
+            <button
+              style={saveButtonStyle(points.length === 0 || saveState === 'saving')}
+              onClick={handleSave}
+              disabled={points.length === 0 || saveState === 'saving'}
+            >
+              {saveState === 'saving' ? 'Guardando…' : `Guardar ${points.length} punto(s) en backend`}
+            </button>
+            {saveMessage && (
+              <div style={saveStatusStyle(saveState === 'error' ? 'error' : 'ok')}>{saveMessage}</div>
+            )}
+          </div>
+
           <div style={tabsBarStyle}>
             <button style={tabButtonStyle(tab === 'list')} onClick={() => setTab('list')}>Lista</button>
             <button style={tabButtonStyle(tab === 'json')} onClick={() => setTab('json')}>JSON</button>
           </div>
           <div style={scrollAreaStyle}>
             {tab === 'list' ? (
-              <ListView points={points} routes={routes} zones={zones} removeFeature={removeFeature} />
+              <ListView points={points} routes={routes} zones={zones} removeFeature={removeFeature} updateZone={updateZone} />
             ) : (
               <JsonView points={points} routes={routes} zones={zones} />
             )}
