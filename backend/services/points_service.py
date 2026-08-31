@@ -53,7 +53,6 @@ def get_point_by_id(point_id: str):
     clean_id = point_id[:-5] if point_id.endswith(".json") else point_id
     file_path = OUTPUT_DIR / f"{clean_id}.json"
 
-    # Verifica si el archivo existe
     if not file_path.is_file():
         raise DoesntExistPointsException(clean_id)
 

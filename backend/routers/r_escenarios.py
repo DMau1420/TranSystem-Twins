@@ -1,10 +1,10 @@
+import json
+
 from fastapi import APIRouter, HTTPException, status
 
 from schemas.sc_escenarios import escenario
 
-router = APIRouter(
-    prefix = "/escenarios"
-)
+router = APIRouter(prefix = "/escenarios", tags = ["Escenarios"])
 
 @router.get("/")
 def ping():
@@ -27,6 +27,12 @@ datos_hardcode = {
     },
 }
 
-@router.get("/prueba", response_model=escenario)
+@router.get("/prueba", response_model=escenario, summary="Obtener escenario hardcodeado")
 def hardcoded_scenario():
     return datos_hardcode
+
+
+@router.get("", summary="Obtener todos los escenarios")
+def obtener_escenarios():
+    with open("escenarios.json", "r", encoding="utf-8") as f:
+        return json.load(f)
