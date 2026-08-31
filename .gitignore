@@ -8,8 +8,10 @@ __pycache__/
 
 .vscode/
 
+data/
+backend/data/
 
-# Archivos generados por SUMO
+
 *.net.xml
 *.osm
 *.rou.xml
