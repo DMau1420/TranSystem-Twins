@@ -17,7 +17,13 @@ export const MapDataProvider = ({ children }) => {
   }, []);
 
   const addZone = useCallback((zone) => {
-    setZones((prev) => [...prev, { id: crypto.randomUUID(), ...zone }]);
+    setZones((prev) => [...prev, { id: crypto.randomUUID(), vehiculos_por_hora: 0, ...zone }]);
+  }, []);
+
+  const updateZone = useCallback((id, field, value) => {
+    setZones((prev) =>
+      prev.map((z) => (z.id === id ? { ...z, [field]: value } : z)),
+    );
   }, []);
 
   const removeFeature = useCallback((id) => {
@@ -33,6 +39,7 @@ export const MapDataProvider = ({ children }) => {
     addPoint,
     addRoute,
     addZone,
+    updateZone,
     removeFeature,
     searchTarget,
     setSearchTarget,
