@@ -1,0 +1,17 @@
+.venv
+**/.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.ruff_cache
+.git
+.gitignore
+data/
+postgis/
+osm_generados/
+prueba/
+docker-compose*.yaml
+docker-compose*.yml
+Dockerfile

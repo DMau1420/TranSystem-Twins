@@ -19,7 +19,10 @@ def cargar_escenario():
     return data
     """
 
-    res = requests.get("localhost/points/prueba")
+    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+    if not backend_url.startswith("http"):
+        backend_url = f"http://{backend_url}"
+    res = requests.get(f"{backend_url}/points/prueba")
     escenario = res.json()
     return escenario
 

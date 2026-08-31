@@ -87,8 +87,10 @@ def main():
             **indicadores
         }
 
-        BASE_URL ="localhost"
-        respuesta = requests.post(f"{BASE_URL}/resultado-sumo", json=payload)
+        base_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        if not base_url.startswith("http"):
+            base_url = f"http://{base_url}"
+        respuesta = requests.post(f"{base_url}/resultado-sumo", json=payload)
         print(f"Resultado enviado, status: {respuesta.status_code}")
 
 

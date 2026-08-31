@@ -1,1 +1,88 @@
-placeholder
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    container_name: postgis_simulacion
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=gis
+      - POSTGRES_USER=gis
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gis -d gis"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - transystem_net
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin_postgis
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+    ports:
+      - "9090:80"
+    depends_on:
+      - postgis
+    networks:
+      - transystem_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: transystem_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://gis:password@postgis:5432/gis
+      - SECRET_KEY=Bon Voyage
+      - ALGORITHM=HS256
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgis:
+        condition: service_healthy
+    networks:
+      - transystem_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: transystem_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - transystem_net
+
+  sumo:
+    build:
+      context: ./sumo
+      dockerfile: Dockerfile
+    container_name: transystem_sumo
+    restart: "no"
+    environment:
+      - SUMO_HOME=/usr/share/sumo
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - transystem_net
+
+volumes:
+  postgis_data:
+
+networks:
+  transystem_net:
+    driver: bridge
