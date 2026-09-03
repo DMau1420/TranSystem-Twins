@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useMapTheme } from '../../context/MapThemeContext';
+import sunIcon from '../../assets/icons/sun-day.jpg';
+import moonIcon from '../../assets/icons/moon-night.jpg';
 import './Sidebar.css';
 
 // Iconos inline (sin dependencias externas)
@@ -71,6 +74,8 @@ export default function Sidebar({
   status = { label: 'CONEXIÓN', value: 'MQTT_OK' },
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const { mapStyle, toggleMapStyle } = useMapTheme();
+  const isDark = mapStyle === 'dark';
 
   return (
     <aside className={`tst-sidebar ${collapsed ? 'is-collapsed' : 'is-expanded'}`}>
@@ -132,6 +137,28 @@ export default function Sidebar({
       </nav>
 
       <div className="tst-sidebar__spacer" />
+
+      {/* Toggle de estilo de mapa: claro/oscuro. Mismo patrón de "switch"
+          que ya usa el panel de Capas para Red vial (OSM). */}
+      <div className="tst-sidebar__theme-toggle" title="Alternar estilo del mapa">
+        <span className={`tst-sidebar__theme-icon-wrap ${!isDark ? 'is-active' : ''}`}>
+          <img src={sunIcon} alt="Modo claro" className="tst-sidebar__theme-icon" />
+        </span>
+
+        <button
+          type="button"
+          className={`tst-sidebar__switch ${isDark ? 'is-on' : ''}`}
+          onClick={toggleMapStyle}
+          aria-pressed={isDark}
+          aria-label="Alternar modo oscuro del mapa"
+        >
+          <span className="tst-sidebar__switch-knob" />
+        </button>
+
+        <span className={`tst-sidebar__theme-icon-wrap ${isDark ? 'is-active' : ''}`}>
+          <img src={moonIcon} alt="Modo oscuro" className="tst-sidebar__theme-icon" />
+        </span>
+      </div>
 
       <button
         type="button"

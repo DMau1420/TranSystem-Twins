@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMapData } from '../context/MapDataContext';
-import { tokens } from '../styles/tokens';
+import { sysCore } from '../styles/sysCore';
+import SysPanelChrome from './common/SysPanelChrome';
 import { createPoints } from '../api/mapApi';
 import { StepperInput } from './common/StepperInput';
 
@@ -9,40 +10,85 @@ const panelStyle = {
   top: 0,
   right: 0,
   height: '100vh',
-  width: 340,
-  background: tokens.color.surface,
-  boxShadow: tokens.shadow.card,
-  zIndex: 1000,
+  width: 360,
+  background: sysCore.color.panel,
+  backdropFilter: 'blur(6px)',
+  borderLeft: `1px solid ${sysCore.color.borderStrong}`,
+  boxShadow: '-8px 0 30px rgba(45, 227, 255, 0.08)',
+  zIndex: 1002,
   display: 'flex',
   flexDirection: 'column',
-  fontFamily: tokens.font.ui,
-  fontSize: 13,
-  color: tokens.color.ink,
+  fontFamily: sysCore.font.mono,
+  fontSize: 12.5,
+  color: sysCore.color.ink,
+  overflow: 'hidden',
 };
 
 const toggleButtonStyle = {
   position: 'absolute',
-  top: 16,
+  top: 90,
   right: 16,
   zIndex: 1001,
-  background: tokens.color.ink,
-  color: tokens.color.surface,
-  border: 'none',
-  borderRadius: tokens.radius.pill,
-  padding: '9px 16px',
+  background: 'rgba(10, 12, 16, 0.9)',
+  color: sysCore.color.cyan,
+  border: `1px solid ${sysCore.color.borderStrong}`,
+  borderRadius: 4,
+  padding: '8px 14px',
   cursor: 'pointer',
-  fontFamily: tokens.font.ui,
-  fontSize: 13,
+  fontFamily: sysCore.font.mono,
+  fontSize: 11,
   fontWeight: 500,
-  boxShadow: tokens.shadow.floating,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
+  boxShadow: '0 0 12px rgba(45, 227, 255, 0.15)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+};
+
+const kbdHintStyle = {
+  fontFamily: sysCore.font.mono,
+  fontSize: 10,
+  color: sysCore.color.cyan,
+  border: `1px solid ${sysCore.color.border}`,
+  borderRadius: 3,
+  padding: '1px 5px',
+  lineHeight: 1.4,
+  opacity: 0.8,
+};
+
+const KEY_SHORTCUT = 'p';
+
+const headerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '16px 18px',
+  borderBottom: `1px solid ${sysCore.color.border}`,
+  fontWeight: 600,
+  fontSize: 11,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: sysCore.color.cyan,
+};
+
+const closeButtonStyle = {
+  background: 'none',
+  border: 'none',
+  color: sysCore.color.inkMuted,
+  cursor: 'pointer',
+  fontSize: 15,
+  lineHeight: 1,
+  padding: 4,
+  fontFamily: sysCore.font.mono,
 };
 
 const tabsBarStyle = {
   display: 'flex',
-  borderBottom: `1px solid ${tokens.color.border}`,
+  borderBottom: `1px solid ${sysCore.color.border}`,
   position: 'sticky',
   top: 0,
-  background: tokens.color.surface,
+  background: sysCore.color.panel,
 };
 
 const tabButtonStyle = (active) => ({
@@ -50,109 +96,120 @@ const tabButtonStyle = (active) => ({
   padding: '12px 0',
   border: 'none',
   background: 'transparent',
-  color: active ? tokens.color.accent : tokens.color.inkMuted,
+  color: active ? sysCore.color.cyan : sysCore.color.inkMuted,
   fontWeight: active ? 600 : 500,
-  borderBottom: active ? `2px solid ${tokens.color.accent}` : '2px solid transparent',
+  borderBottom: active ? `2px solid ${sysCore.color.cyan}` : '2px solid transparent',
   cursor: 'pointer',
-  fontFamily: tokens.font.ui,
-  fontSize: 13,
+  fontFamily: sysCore.font.mono,
+  fontSize: 11,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
 });
 
 const scrollAreaStyle = { overflowY: 'auto', flex: 1 };
 
 const sectionTitleStyle = {
-  padding: '10px 16px',
-  background: tokens.color.surfaceMuted,
+  padding: '10px 18px',
+  background: 'rgba(45, 227, 255, 0.04)',
   fontWeight: 600,
-  fontSize: 11,
-  letterSpacing: '0.04em',
+  fontSize: 10.5,
+  letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  color: tokens.color.inkMuted,
+  color: sysCore.color.inkMuted,
 };
 
 const itemRow = () => ({
   display: 'flex',
-  borderBottom: `1px solid ${tokens.color.border}`,
+  borderBottom: `1px solid ${sysCore.color.border}`,
 });
 
 const itemAccentBar = (color) => ({
-  width: 4,
+  width: 3,
   background: color,
+  boxShadow: `0 0 6px ${color}`,
   flexShrink: 0,
 });
 
-const itemBodyStyle = { padding: '10px 14px', flex: 1 };
+const itemBodyStyle = { padding: '10px 16px', flex: 1 };
 
 const removeButtonStyle = {
   float: 'right',
   background: 'none',
   border: 'none',
-  color: tokens.color.danger,
+  color: sysCore.color.magenta,
   cursor: 'pointer',
-  fontSize: 14,
+  fontSize: 13,
   lineHeight: 1,
+  fontFamily: sysCore.font.mono,
 };
 
 const coordTextStyle = {
-  color: tokens.color.inkMuted,
-  fontFamily: tokens.font.mono,
-  fontSize: 11,
+  color: sysCore.color.inkMuted,
+  fontFamily: sysCore.font.mono,
+  fontSize: 10.5,
 };
 
 const emptyStateStyle = {
   padding: '18px 16px',
-  color: tokens.color.inkMuted,
-  fontSize: 12.5,
+  color: sysCore.color.inkMuted,
+  fontSize: 11.5,
+  fontStyle: 'italic',
 };
 
 const copyButtonStyle = {
-  margin: 12,
+  margin: 14,
   padding: '8px 14px',
-  background: tokens.color.accent,
-  color: tokens.color.surface,
-  border: 'none',
-  borderRadius: tokens.radius.pill,
+  background: 'rgba(45, 227, 255, 0.1)',
+  color: sysCore.color.cyan,
+  border: `1px solid ${sysCore.color.borderStrong}`,
+  borderRadius: 4,
   cursor: 'pointer',
-  fontFamily: tokens.font.ui,
-  fontSize: 12,
+  fontFamily: sysCore.font.mono,
+  fontSize: 11,
   fontWeight: 500,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
 };
 
 const jsonBoxStyle = {
   margin: 0,
   padding: '0 16px 16px',
-  fontFamily: tokens.font.mono,
-  fontSize: 11,
-  color: tokens.color.ink,
+  fontFamily: sysCore.font.mono,
+  fontSize: 10.5,
+  color: sysCore.color.ink,
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
 };
 
 const saveBarStyle = {
-  padding: 12,
-  borderBottom: `1px solid ${tokens.color.border}`,
+  padding: 14,
+  borderBottom: `1px solid ${sysCore.color.border}`,
 };
 
 const saveButtonStyle = (disabled) => ({
   width: '100%',
   padding: '10px 0',
-  background: disabled ? tokens.color.border : tokens.color.accent,
-  color: tokens.color.surface,
-  border: 'none',
-  borderRadius: tokens.radius.sm,
+  background: disabled ? 'rgba(255,255,255,0.05)' : 'rgba(45, 227, 255, 0.12)',
+  color: disabled ? sysCore.color.inkMuted : sysCore.color.cyan,
+  border: `1px solid ${disabled ? sysCore.color.border : sysCore.color.borderStrong}`,
+  borderRadius: 4,
   cursor: disabled ? 'default' : 'pointer',
-  fontFamily: tokens.font.ui,
-  fontSize: 13,
+  fontFamily: sysCore.font.mono,
+  fontSize: 11.5,
   fontWeight: 600,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
 });
 
 const saveStatusStyle = (kind) => ({
   marginTop: 8,
-  fontSize: 11.5,
-  color: kind === 'error' ? tokens.color.danger : tokens.color.accentDark,
-  background: kind === 'error' ? tokens.color.dangerSoft : tokens.color.accentSoft,
-  borderRadius: tokens.radius.sm,
+  fontSize: 11,
+  color: kind === 'error' ? sysCore.color.magenta : sysCore.color.cyan,
+  background: kind === 'error' ? 'rgba(255, 45, 111, 0.08)' : 'rgba(45, 227, 255, 0.08)',
+  border: `1px solid ${kind === 'error' ? 'rgba(255, 45, 111, 0.3)' : 'rgba(45, 227, 255, 0.3)'}`,
+  borderRadius: 4,
   padding: '6px 10px',
+  fontFamily: sysCore.font.mono,
 });
 
 // Convierte los puntos del contexto a la forma que espera PointsPayload.
@@ -172,11 +229,11 @@ function buildPointsPayload(points) {
 
 const ListView = ({ points, routes, zones, removeFeature, updateZone }) => (
   <>
-    <div style={sectionTitleStyle}>Puntos · {points.length}</div>
+    <div style={sectionTitleStyle}>// PUNTOS · {points.length}</div>
     {points.length === 0 && <div style={emptyStateStyle}>Ningún punto marcado todavía.</div>}
     {points.map((p) => (
       <div key={p.id} style={itemRow()}>
-        <div style={itemAccentBar(tokens.color.amber)} />
+        <div style={itemAccentBar(sysCore.color.magenta)} />
         <div style={itemBodyStyle}>
           <button style={removeButtonStyle} onClick={() => removeFeature(p.id)}>✕</button>
           <strong>{p.street ?? 'Calle desconocida'}</strong>
@@ -186,11 +243,11 @@ const ListView = ({ points, routes, zones, removeFeature, updateZone }) => (
       </div>
     ))}
 
-    <div style={sectionTitleStyle}>Rutas · {routes.length}</div>
+    <div style={sectionTitleStyle}>// RUTAS · {routes.length}</div>
     {routes.length === 0 && <div style={emptyStateStyle}>Ninguna ruta trazada todavía.</div>}
     {routes.map((r) => (
       <div key={r.id} style={itemRow()}>
-        <div style={itemAccentBar(tokens.color.accent)} />
+        <div style={itemAccentBar(sysCore.color.cyan)} />
         <div style={itemBodyStyle}>
           <button style={removeButtonStyle} onClick={() => removeFeature(r.id)}>✕</button>
           <strong>{(r.distanceMeters / 1000).toFixed(2)} km</strong>
@@ -200,11 +257,11 @@ const ListView = ({ points, routes, zones, removeFeature, updateZone }) => (
       </div>
     ))}
 
-    <div style={sectionTitleStyle}>Zonas · {zones.length}</div>
+    <div style={sectionTitleStyle}>// ZONAS · {zones.length}</div>
     {zones.length === 0 && <div style={emptyStateStyle}>Ninguna zona marcada todavía.</div>}
     {zones.map((z) => (
       <div key={z.id} style={itemRow()}>
-        <div style={itemAccentBar(tokens.color.slate)} />
+        <div style={itemAccentBar(sysCore.color.amber)} />
         <div style={itemBodyStyle}>
           <button style={removeButtonStyle} onClick={() => removeFeature(z.id)}>✕</button>
           <span style={coordTextStyle}>Zona #{z.id.slice(0, 8)}</span>
@@ -245,7 +302,7 @@ const JsonView = ({ points, routes, zones }) => {
   return (
     <>
       <button style={copyButtonStyle} onClick={handleCopy}>
-        {copied ? '✓ Copiado' : 'Copiar JSON'}
+        {copied ? '✓ COPIADO' : 'COPIAR_JSON'}
       </button>
       <pre style={jsonBoxStyle}>{json}</pre>
     </>
@@ -259,6 +316,23 @@ export const MapDataPanel = () => {
   const [saveMessage, setSaveMessage] = useState('');
   const { points, routes, zones, removeFeature, updateZone } = useMapData();
   const total = points.length + routes.length + zones.length;
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (e.key.toLowerCase() === KEY_SHORTCUT) {
+        setOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleSave = async () => {
     if (points.length === 0) return;
@@ -282,19 +356,29 @@ export const MapDataPanel = () => {
 
   return (
     <>
-      <button style={toggleButtonStyle} onClick={() => setOpen((prev) => !prev)}>
-        {open ? 'Ocultar panel' : `Ver puntos (${total})`}
-      </button>
+      {!open && (
+        <button style={toggleButtonStyle} onClick={() => setOpen(true)}>
+          {`// PUNTOS (${total})`} <span style={kbdHintStyle}>P</span>
+        </button>
+      )}
 
       {open && (
         <div style={panelStyle}>
+          <SysPanelChrome />
+          <div style={headerStyle}>
+            // PUNTOS_DEL_MAPA //
+            <button style={closeButtonStyle} onClick={() => setOpen(false)} title="Cerrar (P)">
+              ✕
+            </button>
+          </div>
+
           <div style={saveBarStyle}>
             <button
               style={saveButtonStyle(points.length === 0 || saveState === 'saving')}
               onClick={handleSave}
               disabled={points.length === 0 || saveState === 'saving'}
             >
-              {saveState === 'saving' ? 'Guardando…' : `Guardar ${points.length} punto(s) en backend`}
+              {saveState === 'saving' ? 'GUARDANDO…' : `GUARDAR ${points.length} PUNTO(S)`}
             </button>
             {saveMessage && (
               <div style={saveStatusStyle(saveState === 'error' ? 'error' : 'ok')}>{saveMessage}</div>
