@@ -15,6 +15,7 @@ class AuthService:
             
         nuevo_usuario = User(
             nombre = user_in.nombre,
+            apodo = user_in.apodo,
             correo = user_in.correo,
             password = hash_password(user_in.password),
             rol = user_in.rol
@@ -30,5 +31,13 @@ class AuthService:
         if not usuario or not verifica_password(pwd, usuario.password):
             raise InvalidCredentialsException()
 
-        access_token = create_access_token(data = {"sub": str(usuario.id), "rol": usuario.rol})
+        access_token = create_access_token(
+            data={
+                "sub": str(usuario.id),
+                "rol": usuario.rol,
+                "nombre": usuario.nombre,
+                "apodo": usuario.apodo,
+                "correo": usuario.correo,
+            }
+        )
         return Token(access_token = access_token, token_type="bearer")

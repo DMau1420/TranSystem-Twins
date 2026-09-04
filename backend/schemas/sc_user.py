@@ -1,16 +1,17 @@
-from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 class CreateUser(BaseModel):
     nombre: str
+    apodo: str | None = None
     correo: EmailStr
     password: str
-    rol:str = "Investigador"
+    rol: str = "Investigador"
 
 class UserResponse(BaseModel):
     id: UUID
     nombre: str
+    apodo: str | None = None
     correo: EmailStr
     rol: str
     

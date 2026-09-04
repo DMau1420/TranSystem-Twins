@@ -58,8 +58,9 @@ export function AuthProvider({ children }) {
 
       const sessionUser = {
         id: payload?.sub || crypto.randomUUID(),
-        correo,
-        nombre: correo.split('@')[0],
+        correo: payload?.correo || correo,
+        nombre: payload?.nombre || correo.split('@')[0],
+        apodo: payload?.apodo || null,
         rol: payload?.rol || 'Investigador',
         token: data.access_token,
       };
@@ -79,7 +80,7 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(
     async (userData) => {
-      const { correo, contrasena, nombre, apellido, ocupacion } = userData;
+      const { correo, contrasena, nombre, apellido, apodo, ocupacion } = userData;
 
       if (!correo || !contrasena || !nombre || !apellido) {
         return { success: false, error: 'Completa todos los campos obligatorios.' };
@@ -98,6 +99,7 @@ export function AuthProvider({ children }) {
         const fullName = `${nombre.trim()} ${apellido.trim()}`;
         const registeredUser = await registerApi({
           nombre: fullName,
+          apodo: apodo?.trim() || null,
           correo: correo.trim(),
           password: contrasena,
           rol: ocupacion || 'Investigador',
@@ -111,6 +113,7 @@ export function AuthProvider({ children }) {
             const updated = {
               ...prev,
               nombre: registeredUser.nombre || fullName,
+              apodo: registeredUser.apodo || apodo?.trim() || null,
               rol: registeredUser.rol || prev?.rol || 'Investigador',
             };
             localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated));

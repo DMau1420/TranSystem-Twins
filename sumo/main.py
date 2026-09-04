@@ -1,4 +1,5 @@
 import sys
+import os
 import traci
 from sumo_tools import cargar_herramientas_sumo
 from data_generators import conversor_osm_to_netxml

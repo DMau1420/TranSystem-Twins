@@ -50,8 +50,8 @@ function AppLayout() {
             console.log('nav ->', id);
           }}
           user={{
-            name: user?.name ?? user?.username ?? 'Invitado',
-            role: user?.role ?? 'VIEWER',
+            name: user?.apodo || user?.nombre || user?.name || 'Invitado',
+            role: user?.rol || user?.role || 'Investigador',
           }}
         />
         <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>

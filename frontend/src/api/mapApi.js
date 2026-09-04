@@ -1,5 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
-console.log('API_BASE:', API_BASE);
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = RAW_API_BASE.endsWith('/') ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
 
 export async function createPoints(payload) {
   const response = await fetch(`${API_BASE}/points`, {

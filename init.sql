@@ -13,6 +13,7 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 CREATE TABLE IF NOT EXISTS usuarios (
     id UUID PRIMARY KEY, -- Generado como UUIDv7 desde la aplicación / conector
     nombre VARCHAR(255) NOT NULL,
+    apodo VARCHAR(255),
     correo VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     rol VARCHAR(50) NOT NULL DEFAULT 'Investigador'

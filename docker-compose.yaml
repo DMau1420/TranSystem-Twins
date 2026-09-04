@@ -11,26 +11,12 @@ services:
       - "5432:5432"
     volumes:
       - postgis_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U gis -d gis"]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - transystem_net
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin_postgis
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: adminpassword
-    ports:
-      - "9090:80"
-    depends_on:
-      - postgis
     networks:
       - transystem_net
 

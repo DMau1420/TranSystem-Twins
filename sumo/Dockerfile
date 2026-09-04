@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim
 
 # Install SUMO, tools and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

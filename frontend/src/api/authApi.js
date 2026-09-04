@@ -34,10 +34,10 @@ export async function loginApi({ correo, password }) {
 
 /**
  * Registra un nuevo usuario en la base de datos a través de FastAPI
- * @param {{ nombre: string, correo: string, password: string, rol?: string }} userData
- * @returns {Promise<{ id: string, nombre: string, correo: string, rol: string }>}
+ * @param {{ nombre: string, apodo?: string, correo: string, password: string, rol?: string }} userData
+ * @returns {Promise<{ id: string, nombre: string, apodo?: string, correo: string, rol: string }>}
  */
-export async function registerApi({ nombre, correo, password, rol = 'Investigador' }) {
+export async function registerApi({ nombre, apodo, correo, password, rol = 'Investigador' }) {
   const response = await fetch(`${BASE_URL}/auth/register`, {
     method: 'POST',
     headers: {
@@ -45,6 +45,7 @@ export async function registerApi({ nombre, correo, password, rol = 'Investigado
     },
     body: JSON.stringify({
       nombre,
+      apodo: apodo || null,
       correo,
       password,
       rol,
