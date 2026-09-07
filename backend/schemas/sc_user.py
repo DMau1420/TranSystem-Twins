@@ -17,6 +17,13 @@ class UserResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+class UpdateUser(BaseModel):
+    nombre: str | None = None
+    apodo: str | None = None
+    correo: EmailStr | None = None
+    password: str | None = None
+    rol: str | None = None
+
 class LoginUser(BaseModel):
     correo: EmailStr
     password: str

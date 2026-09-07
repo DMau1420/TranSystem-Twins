@@ -38,5 +38,23 @@ class CantReadPointException(HTTPException):
     def __init__(self, point_id, err):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al leer el archivo {point_id}: {err}"
+            detail=f"Error al leer el archivo {point_id}: {err}",
         )
+
+
+class InvalidTokenException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+class UserNotFoundException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado.",
+        )
+

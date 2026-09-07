@@ -21,8 +21,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock* .python-version* ./
 
 # Install dependencies into virtualenv
-RUN uv sync --no-install-project --no-dev
-
+RUN uv
 # Copy application source code
 COPY . /app
 
