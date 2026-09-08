@@ -1,6 +1,5 @@
-from sqlalchemy.sql.expression import null
 import uuid6
-from sqlalchemy import Column, DateTime, String, func
+from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from core.database import Base
@@ -13,4 +12,4 @@ class User(Base):
     apodo = Column(String(255), nullable=True)
     correo = Column(String(255), nullable=False, unique=True)
     password = Column(String(255), nullable=False)
-    rol = Column(String(255), nullable=False, default="Investigador")
+    rol = Column(String(50), nullable=False, default="Investigador")

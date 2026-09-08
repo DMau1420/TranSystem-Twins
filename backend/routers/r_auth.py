@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.exceptions import InvalidCredentialsException
 from models.md_user import User
 from schemas.sc_user import CreateUser, LoginUser, Token, UpdateUser, UserResponse
 from services.auth_service import AuthService
@@ -15,12 +16,25 @@ router = APIRouter(prefix="/auth", tags=["autenticación"])
 def register(user_in: CreateUser, db: Session = Depends(get_db)):
     return AuthService.registrar_user(db=db, user_in=user_in)
 
-@router.post("/login", response_model=Token)
-def login(
-    credentials: LoginUser,
-    db: Session = Depends(get_db)
+@router.post("/login", response_model=Token, summary="Iniciar sesión")
+async def login(
+    request: Request,
+    db: Session = Depends(get_db),
 ):
-    return AuthService.autenticar_user(db=db, correo=credentials.correo, pwd = credentials.password)
+    content_type = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+        form = await request.form()
+        correo = form.get("username") or form.get("correo")
+        password = form.get("password")
+    else:
+        body = await request.json()
+        correo = body.get("correo") or body.get("username")
+        password = body.get("password")
+
+    if not correo or not password:
+        raise InvalidCredentialsException()
+
+    return AuthService.autenticar_user(db=db, correo=str(correo), pwd=str(password))
 
 @router.put("/me", response_model=UserResponse, summary="Modificar datos del usuario autenticado (PUT)")
 @router.patch("/me", response_model=UserResponse, summary="Modificar datos del usuario autenticado (PATCH)")
