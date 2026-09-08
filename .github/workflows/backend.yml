@@ -16,37 +16,38 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgis:
         image: postgis/postgis:17-3.5
         env:
-          POSTGRES_DB=gis
-          POSTGRES_USER=gis
-          POSTGRES_PASSWORD=password
-        port:
+          POSTGRES_DB: gis
+          POSTGRES_USER: gis
+          POSTGRES_PASSWORD: password
+        ports:
           - 5432:5432
         options: >-
-          --healt-cmd pg_isready
-          --healt-interval 10s
+          --health-cmd pg_isready
+          --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
-      steps:
-        - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-        - name: instalar uv
-          uses: astral-sh/setup-uv@v5
-          with:
-            version: "latest"
-            cache-dependency-glob: "backend/pyproyect.toml"
+      - name: instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          cache-dependency-glob: "backend/pyproyect.toml"
 
-        - name: instalar python
-          run: uv python install
+      - name: instalar python
+        run: uv python install
 
-        - name: ejecutar pruebas
-          working-directory: ./backend
-          env:
-            DATABASE_URL=postgresql://gis:password@postgis:5432/gis
-            SECRET_KEY=Bon Voyage
-            ALGORITHM=HS256
-          run: uv run pytest -v
+      - name: ejecutar pruebas
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://gis:password@localhost:5432/gis
+          SECRET_KEY: Bon Voyage
+          ALGORITHM: HS256
+        run: uv run pytest -v
