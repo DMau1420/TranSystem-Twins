@@ -58,3 +58,11 @@ class UserNotFoundException(HTTPException):
             detail="Usuario no encontrado.",
         )
 
+
+class ProyectoNotFoundException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Proyecto no encontrado.",
+        )
+
