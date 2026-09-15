@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMapTheme } from '../../context/MapThemeContext';
 import sunIcon from '../../assets/icons/sun-day.jpg';
 import moonIcon from '../../assets/icons/moon-night.jpg';
+import AccountMenu from './AccountMenu';
+import ProjectsPanel from '../dashboard/ProjectsPanel';
 import './Sidebar.css';
 
 // Iconos inline (sin dependencias externas)
@@ -9,6 +11,15 @@ const IconMap = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
     <path d="M9 4L3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5 9 4z" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M9 4v14M15 6.5v14" strokeLinecap="round" />
+  </svg>
+);
+const IconFolder = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path
+      d="M3.5 7.2c0-.9.72-1.6 1.6-1.6h4.1l1.6 2h8.1c.9 0 1.6.72 1.6 1.6v9.2c0 .9-.72 1.6-1.6 1.6H5.1c-.9 0-1.6-.72-1.6-1.6V7.2z"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 const IconSim = () => (
@@ -51,6 +62,7 @@ const IconChevron = () => (
 
 const NAV_ITEMS = [
   { id: 'mapa', label: 'Mapa', icon: IconMap, tag: 'NAV_01' },
+  { id: 'proyectos', label: 'Proyectos', icon: IconFolder, tag: 'PROJ_SP' },
   { id: 'simulaciones', label: 'Simulaciones', icon: IconSim, tag: 'SIM_ST', badge: 'LIVE', badgeTone: 'cyan' },
   { id: 'rutas', label: 'Rutas', icon: IconRoutes, tag: 'RUT_NET' },
   { id: 'notificaciones', label: 'Notificaciones', icon: IconBell, tag: 'COMM_NET', badge: '04', badgeTone: 'magenta' },
@@ -63,7 +75,7 @@ const NAV_ITEMS = [
  *
  * Props:
  *  - active: id del item activo (default "mapa")
- *  - onNavigate: (id) => void
+ *  - onNavigate: (id) => void — se sigue llamando para los ítems que no abren un overlay propio
  *  - user: { name, role, avatarUrl }
  *  - status: { label, value } — franja inferior (ej. conexión MQTT)
  */
@@ -77,11 +89,35 @@ export default function Sidebar({
   const { mapStyle, toggleMapStyle } = useMapTheme();
   const isDark = mapStyle === 'dark';
 
+  // Overlays controlados desde el Sidebar. Se mantienen mutuamente
+  // excluyentes: abrir uno cierra el otro.
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [projectsPanelOpen, setProjectsPanelOpen] = useState(false);
+
+  function openAccountMenu() {
+    setProjectsPanelOpen(false);
+    setAccountMenuOpen(true);
+  }
+
+  function openProjectsPanel() {
+    setAccountMenuOpen(false);
+    setProjectsPanelOpen(true);
+  }
+
+  function handleNavClick(id) {
+    if (id === 'proyectos') {
+      openProjectsPanel();
+      return;
+    }
+    onNavigate(id);
+  }
+
   return (
-    <aside className={`tst-sidebar ${collapsed ? 'is-collapsed' : 'is-expanded'}`}>
-      <div className="tst-sidebar__reticle tst-sidebar__reticle--tl" />
-      <div className="tst-sidebar__reticle tst-sidebar__reticle--br" />
-      <div className="tst-sidebar__scanline" />
+    <>
+      <aside className={`tst-sidebar ${collapsed ? 'is-collapsed' : 'is-expanded'}`}>
+        <div className="tst-sidebar__reticle tst-sidebar__reticle--tl" />
+        <div className="tst-sidebar__reticle tst-sidebar__reticle--br" />
+        <div className="tst-sidebar__scanline" />
 
       <header className="tst-sidebar__header">
         <div className="tst-sidebar__brand">
@@ -107,13 +143,13 @@ export default function Sidebar({
 
       <nav className="tst-sidebar__nav">
         {NAV_ITEMS.map(({ id, label, icon: Icon, tag, badge, badgeTone }) => {
-          const isActive = id === active;
+          const isActive = id === active || (id === 'proyectos' && projectsPanelOpen);
           return (
             <button
               type="button"
               key={id}
               className={`tst-sidebar__item ${isActive ? 'is-active' : ''}`}
-              onClick={() => onNavigate(id)}
+              onClick={() => handleNavClick(id)}
               title={collapsed ? label : undefined}
             >
               <span className="tst-sidebar__item-icon">
@@ -163,7 +199,7 @@ export default function Sidebar({
       <button
         type="button"
         className="tst-sidebar__item tst-sidebar__item--profile"
-        onClick={() => onNavigate('perfil')}
+        onClick={openAccountMenu}
         title={collapsed ? 'Perfil' : undefined}
       >
         <span className="tst-sidebar__item-icon">
@@ -193,6 +229,11 @@ export default function Sidebar({
           <span className="tst-sidebar__footer-dot" />
         )}
       </footer>
-    </aside>
+
+      <AccountMenu isOpen={accountMenuOpen} onClose={() => setAccountMenuOpen(false)} />
+      </aside>
+
+      <ProjectsPanel isOpen={projectsPanelOpen} onClose={() => setProjectsPanelOpen(false)} />
+    </>
   );
 }

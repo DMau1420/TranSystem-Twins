@@ -15,6 +15,7 @@ import { useMapData } from '../../context/MapDataContext';
 import { useMapTheme } from '../../context/MapThemeContext';
 import { reverseGeocode } from '../../utils/geocoding';
 import RoadNetworkLayer from './RoadNetworkLayer';
+import SumoNetworkLayer from './SumoNetworkLayer';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -137,6 +138,7 @@ const InvalidateOnResize = () => {
 export const MapContainer = () => {
   const [showRoadNetwork, setShowRoadNetwork] = useState(false);
   const [roadNetworkLoading, setRoadNetworkLoading] = useState(false);
+  const [showSumoNetwork, setShowSumoNetwork] = useState(false);
   const { mapStyle } = useMapTheme(); // 'light' | 'dark' — controlado desde el Sidebar
 
   return (
@@ -148,6 +150,8 @@ export const MapContainer = () => {
         showRoadNetwork={showRoadNetwork}
         onToggleRoadNetwork={() => setShowRoadNetwork((prev) => !prev)}
         roadNetworkLoading={roadNetworkLoading}
+        showSumoNetwork={showSumoNetwork}
+        onToggleSumoNetwork={() => setShowSumoNetwork((prev) => !prev)}
       />
       <LeafletMap
         center={DEFAULT_CENTER}
@@ -161,6 +165,7 @@ export const MapContainer = () => {
         <FlyToSearchResult />
         <InvalidateOnResize />
         <RoadNetworkLayer visible={showRoadNetwork} onLoadingChange={setRoadNetworkLoading} />
+        <SumoNetworkLayer visible={showSumoNetwork} />
       </LeafletMap>
     </div>
   );

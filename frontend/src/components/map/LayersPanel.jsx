@@ -155,13 +155,16 @@ const segmentButtonStyle = (active) => ({
 const KEY_SHORTCUT = 'l';
 
 /**
- * Panel deslizable de capas del mapa: Red vial OSM y estilo de tiles
- * (Claro/Oscuro). Estilo SYS_CORE, consistente con Auth.css.
+ * Panel deslizable de capas del mapa: Red vial OSM, Red SUMO (simulación)
+ * y estilo de tiles (Claro/Oscuro). Estilo SYS_CORE, consistente con Auth.css.
  */
 export const LayersPanel = ({
   showRoadNetwork,
   onToggleRoadNetwork,
   roadNetworkLoading,
+  showSumoNetwork,
+  onToggleSumoNetwork,
+  sumoNetworkLoading,
   mapStyle,
   onChangeMapStyle,
 }) => {
@@ -212,6 +215,20 @@ export const LayersPanel = ({
             aria-pressed={showRoadNetwork}
           >
             <span style={switchKnobStyle(showRoadNetwork)} />
+          </button>
+        </div>
+
+        <div style={layerRowStyle}>
+          <div style={layerLabelWrapStyle}>
+            <span>RED_VIAL // SUMO</span>
+            {sumoNetworkLoading && <span style={loadingDotStyle} title="Cargando…" />}
+          </div>
+          <button
+            style={switchStyle(showSumoNetwork)}
+            onClick={onToggleSumoNetwork}
+            aria-pressed={showSumoNetwork}
+          >
+            <span style={switchKnobStyle(showSumoNetwork)} />
           </button>
         </div>
       </div>
