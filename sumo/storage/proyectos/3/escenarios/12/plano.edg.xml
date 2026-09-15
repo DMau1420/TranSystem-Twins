@@ -3701,7 +3701,7 @@
         <param key="oneway" value="yes" />
         <param key="surface" value="asphalt" />
     </edge>
-    <edge id="126678475#0" from="271598528" to="271600570" priority="14" type="highway.motorway" numLanes="3" speed="27.78" spreadType="center" allow="private emergency authority army vip passenger hov taxi bus coach delivery truck trailer motorcycle evehicle custom1 custom2">
+    <edge id="126678475#0" from="271598528" to="271600570" priority="14" type="highway.motorway" numLanes="4" speed="27.78" spreadType="center" allow="private emergency authority army vip passenger hov taxi bus coach delivery truck trailer motorcycle evehicle custom1 custom2">
         <param key="bridge" value="yes" />
         <param key="highway" value="motorway" />
         <param key="lanes" value="3" />
@@ -3710,7 +3710,7 @@
         <param key="oneway" value="yes" />
         <param key="surface" value="asphalt" />
     </edge>
-    <edge id="126678475#1" from="271600570" to="271592329" priority="14" type="highway.motorway" numLanes="3" speed="27.78" spreadType="center" allow="private emergency authority army vip passenger hov taxi bus coach delivery truck trailer motorcycle evehicle custom1 custom2">
+    <edge id="126678475#1" from="271600570" to="271592329" priority="14" type="highway.motorway" numLanes="4" speed="27.78" spreadType="center" allow="private emergency authority army vip passenger hov taxi bus coach delivery truck trailer motorcycle evehicle custom1 custom2">
         <param key="bridge" value="yes" />
         <param key="highway" value="motorway" />
         <param key="lanes" value="3" />
@@ -3719,7 +3719,7 @@
         <param key="oneway" value="yes" />
         <param key="surface" value="asphalt" />
     </edge>
-    <edge id="126678475#2" from="271592329" to="271592316" priority="14" type="highway.motorway" numLanes="3" speed="27.78" shape="1214.54,1990.56 1201.51,2027.76 1188.24,2075.47 1176.98,2127.05 1167.93,2208.99 1166.71,2266.14 1170.37,2330.12 1182.02,2456.63" spreadType="center" allow="private emergency authority army vip passenger hov taxi bus coach delivery truck trailer motorcycle evehicle custom1 custom2">
+    <edge id="126678475#2" from="271592329" to="271592316" priority="14" type="highway.motorway" numLanes="4" speed="27.78" shape="1214.54,1990.56 1201.51,2027.76 1188.24,2075.47 1176.98,2127.05 1167.93,2208.99 1166.71,2266.14 1170.37,2330.12 1182.02,2456.63" spreadType="center" allow="private emergency authority army vip passenger hov taxi bus coach delivery truck trailer motorcycle evehicle custom1 custom2">
         <param key="bridge" value="yes" />
         <param key="highway" value="motorway" />
         <param key="lanes" value="3" />
