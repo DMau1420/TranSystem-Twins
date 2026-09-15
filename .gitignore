@@ -9,3 +9,13 @@ __pycache__/
 .venv/
 
 .vscode/
+
+data/
+backend/data/
+
+
+*.net.xml
+*.osm
+*.rou.xml
+*.sumocfg
+*.tripinfo.xml

@@ -1,0 +1,30 @@
+{
+	"name": "frontend",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"lint": "eslint .",
+		"preview": "vite preview"
+	},
+	"lint-staged": {
+		"frontend/**/*.{js,jsx,ts,tsx}": [
+			"npx --prefix frontend eslint --fix",
+			"prettier --write"
+		]
+	},
+	"dependencies": {
+		"@geoman-io/leaflet-geoman-free": "^2.20.0",
+		"leaflet": "^1.9.4",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
+		"react-leaflet": "^5.0.0",
+		"react-router-dom": "^7.18.2"
+	},
+	"devDependencies": {
+		"@vitejs/plugin-react": "^6.0.5",
+		"vite": "^8.2.0"
+	}
+}

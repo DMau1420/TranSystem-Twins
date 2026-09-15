@@ -1,0 +1,20 @@
+{
+    "id": "1234123",
+    "lat": 0.0,
+    "lng": 0.0,
+    "geoJson": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+            "type": "Point",
+            "coordinates": [
+                1.0,
+                2.0,
+                3.0,
+                4.0
+            ]
+        }
+    },
+    "street": "nose",
+    "displayName": "talves"
+}

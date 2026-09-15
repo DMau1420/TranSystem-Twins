@@ -1,0 +1,18 @@
+{
+    "id": "1958",
+    "lat": 20.2562,
+    "lng": -99.5268,
+    "geoJson": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+            "type": "Point",
+            "coordinates": [
+                -99.5268,
+                20.5268
+            ]
+        }
+    },
+    "street": "avenida random",
+    "displayName": "random av. Ciudad de mexico, dani chilango"
+}
