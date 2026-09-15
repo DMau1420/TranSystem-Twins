@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Visualización de red SUMO</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --panel: #ffffff;
+            --ink: #2b2b28;
+            --muted: #6b6b64;
+            --accent: #009999;
+            --accent-soft: #e4efec;
+            --border: #ddd8cc;
+            --danger: #c0392b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+        }
+        header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 {
+            font-size: 17px;
+            margin: 0;
+            font-weight: 600;
+        }
+        header p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        header .badge {
+            background: var(--accent-soft);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--accent);
+        }
+        #layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            height: calc(100vh - 66px);
+        }
+        #mapa {
+            height: 100%;
+            background: #e8e4dc;
+        }
+        #panel {
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #panel h2 {
+            font-size: 14px;
+            margin: 0 0 12px 0;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .vacio {
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.5;
+            text-align: center;
+            padding: 40px 0;
+        }
+        .campo {
+            margin-bottom: 14px;
+        }
+        .campo label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .campo input, .campo select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fbfaf7;
+            transition: all 0.2s;
+        }
+        .campo input:focus, .campo select:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+        .campo .info {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .nombre-calle {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            color: var(--ink);
+        }
+        .edge-id {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 16px;
+            font-family: monospace;
+        }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        button {
+            padding: 9px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover { opacity: 0.9; }
+        .btn-secondary {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+        .btn-secondary:hover { background: #d0e4de; }
+        #estado {
+            font-size: 12px;
+            color: var(--accent);
+            margin-top: 10px;
+            min-height: 16px;
+            text-align: center;
+            padding: 6px;
+            background: var(--accent-soft);
+            border-radius: 4px;
+            display: none;
+        }
+        #estado.visible {
+            display: block;
+        }
+        .leyenda {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--panel);
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--muted);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .leyenda .fila {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .leyenda .color-muestra {
+            width: 22px;
+            height: 4px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .leyenda .color-muestra.principal {
+            background: #1a1aff;
+            height: 6px;
+        }
+        .leyenda .color-muestra.calle {
+            background: #5c00e6;
+        }
+        .leyenda .color-muestra.rampa {
+            background: repeating-linear-gradient(90deg, #9b59b6 0 4px, transparent 4px 8px);
+            height: 4px;
+        }
+        .leyenda .color-muestra.seleccionado {
+            background: #c96a3a;
+            height: 6px;
+        }
+        .leyenda .color-muestra.semaforo {
+            background: #e74c3c;
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+        }
+        .cargando {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--panel);
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-size: 14px;
+        }
+        @media (max-width: 768px) {
+            #layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60vh 40vh;
+            }
+            #panel {
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+        }
+
+        .tooltip-interseccion {
+            background: var(--panel);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .fase-item {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            background: #fbfaf7;
+        }
+        .fase-item .fase-titulo {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .fase-item .fase-estado {
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--muted);
+            word-break: break-all;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>Visualizador de red SUMO</h1>
+        <p>Haz clic en cualquier calle o semáforo para editar sus atributos</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+        <span class="badge" id="contador-calles">Cargando...</span>
+        <button class="btn-primary" id="btn-simular" style="padding:8px 16px;">Simular escenario</button>
+    </div>
+</header>
+
+<div id="layout">
+    <div style="position:relative">
+        <div id="mapa">
+            <div class="cargando" id="cargando">
+                Cargando red de calles...
+            </div>
+        </div>
+        <div class="leyenda">
+            <div class="fila">
+                <span class="color-muestra principal"></span>
+                <span>Vía principal (motorway/trunk)</span>
+            </div>
+            <div class="fila">
+                <span class="color-muestra calle"></span>
+                <span>Calle normal</span>
+            </div>
+            <div class="fila">
+                <span class="color-muestra rampa"></span>
+                <span>Rampa / enlace (link)</span>
+            </div>
+            <div class="fila">
+                <span class="color-muestra seleccionado"></span>
+                <span>Seleccionada</span>
+            </div>
+            <div class="fila">
+                <span class="color-muestra semaforo"></span>
+                <span>Semáforo</span>
+            </div>
+        </div>
+    </div>
+    <div id="panel">
+        <h2>Atributos</h2>
+        <div id="contenido-panel">
+            <p class="vacio">Selecciona una calle o un semáforo en el mapa<br>para editar sus atributos</p>
+        </div>
+    </div>
+</div>
+
+<div class="cargando" id="modal-resultado" style="display:none; text-align:left; max-width:320px;">
+    <div id="contenido-resultado"></div>
+    <div class="btn-group" style="grid-template-columns: 1fr; margin-top:16px;">
+        <button class="btn-secondary" id="btn-cerrar-resultado">Cerrar</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// Estado global
+let redData = null;
+let capaRed = null;
+let capaSeleccionada = null;
+let mapa = null;
+let featureSeleccionada = null;
+
+// Inicializar mapa
+function initMap() {
+    mapa = L.map('mapa', {
+        center: [19.4602, -99.1832],
+        zoom: 14,
+        zoomControl: true
+    });
+
+    // Cargar tiles de OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(mapa);
+}
+
+// ---------- CLASIFICACIÓN DE TIPO DE VÍA ----------
+// sumolib expone el "type" del edge tal como netconvert lo importó de OSM,
+// normalmente como "highway.motorway", "highway.motorway_link",
+// "highway.primary", "highway.residential", etc. Esta función normaliza
+// esos valores (o variantes sin el prefijo "highway.") en 3 categorías
+// visuales: rampa/enlace, vía principal, o calle normal.
+function clasificarTipo(tipoRaw) {
+    const tipo = (tipoRaw || '').toLowerCase();
+
+    if (tipo.includes('link')) {
+        return 'rampa';
+    }
+    if (tipo.includes('motorway') || tipo.includes('trunk')) {
+        return 'principal';
+    }
+    return 'calle';
+}
+
+// Color sólido por categoría, usado tanto por las calles como por el
+// relleno de los polígonos de intersección (para que combinen).
+const COLOR_POR_CATEGORIA = {
+    principal: '#1a1aff',
+    rampa: '#9b59b6',
+    calle: '#5c00e6'
+};
+
+// Estilos para las calles, según su categoría (principal / calle / rampa)
+function estiloBase(feature) {
+    const p = feature && feature.properties;
+
+    // Polígonos de intersección: solo relleno, sin borde, para "tapar" el
+    // hueco que deja netconvert entre el final de una edge y el inicio de
+    // la siguiente dentro de la junction.
+    if (p && p.tipo_elemento === 'interseccion') {
+        const color = COLOR_POR_CATEGORIA[clasificarTipo(p.tipo)] || COLOR_POR_CATEGORIA.calle;
+        return {
+            stroke: false,
+            fillColor: color,
+            fillOpacity: 0.8
+        };
+    }
+
+    const categoria = clasificarTipo(p && p.tipo);
+
+    switch (categoria) {
+        case 'principal':
+            return {
+                color: '#1a1aff',
+                weight: 8,
+                opacity: 0.85,
+                smoothFactor: 1
+            };
+        case 'rampa':
+            return {
+                color: '#9b59b6',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: '4, 5',
+                smoothFactor: 1
+            };
+        default: // 'calle'
+            return {
+                color: '#5c00e6',
+                weight: 6,
+                opacity: 0.75,
+                smoothFactor: 1
+            };
+    }
+}
+
+function estiloSeleccionado() {
+    return {
+        color: '#c96a3a',
+        weight: 6,
+        opacity: 0.95,
+        dashArray: null,
+        smoothFactor: 1
+    };
+}
+
+function estiloHover(feature) {
+    // Mantiene el grosor/patrón propio del tipo, solo resalta el color
+    const base = estiloBase(feature);
+    return {
+        ...base,
+        color: '#e67e22',
+        opacity: 0.9
+    };
+}
+
+// Estilo normal / seleccionado para el círculo de un semáforo
+function estiloSemaforoBase() {
+    return {
+        radius: 7,
+        color: '#c0392b',
+        fillColor: '#e74c3c',
+        fillOpacity: 0.9,
+        weight: 2
+    };
+}
+
+function estiloSemaforoSeleccionado() {
+    return {
+        radius: 9,
+        color: '#c96a3a',
+        fillColor: '#c96a3a',
+        fillOpacity: 0.95,
+        weight: 3
+    };
+}
+
+// Cargar datos del servidor
+async function cargarRed() {
+    try {
+        const response = await fetch('/red');
+
+        if (response.status === 409) {
+            // Estado esperado la primera vez: todavía no se ha importado
+            // nada en esta sesión del servidor, aunque ya existan archivos
+            // de una corrida anterior en disco.
+            document.getElementById('cargando').innerHTML = `
+                La red todavía no se ha importado en esta sesión.<br>
+                Da clic en <strong>"Simular escenario"</strong> para descargarla
+                (la primera vez puede tardar unos segundos).
+            `;
+            return null;
+        }
+
+        if (!response.ok) throw new Error('Error al cargar la red');
+        redData = await response.json();
+
+        document.getElementById('cargando').style.display = 'none';
+
+        // Solo cuenta calles reales (excluye conectores internos y semáforos)
+        const totalCalles = redData.features.filter(
+            f => f.properties.tipo_elemento === 'calle'
+        ).length;
+        document.getElementById('contador-calles').textContent = `${totalCalles} calles`;
+
+        return redData;
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('cargando').innerHTML = `
+            Error al cargar la red<br>
+            <small>${error.message}</small>
+        `;
+        return null;
+    }
+}
+
+// Agregar calles (y semáforos) al mapa.
+// NOTA: se excluyen los conectores internos ("conector_interno") porque generan
+// una maraña visual en las intersecciones (SUMO crea un segmento interno por
+// cada movimiento de giro posible dentro de una junction). No son calles
+// editables, así que no aportan nada a la UI y solo estorban visualmente.
+// EXCEPCIÓN: los conectores marcados con "pertenece_a_glorieta" sí se dibujan,
+// porque en una rotonda ese conector no es un giro alternativo, es el único
+// tramo que sigue el contorno circular (sin él la curva se ve "cortada").
+function agregarCalles(geojson) {
+    if (!geojson || !geojson.features) return;
+
+    capaRed = L.geoJSON(geojson, {
+        filter: function (feature) {
+            const p = feature.properties;
+            if (p.tipo_elemento !== 'conector_interno') return true;
+            return p.pertenece_a_glorieta === true;
+        },
+        pointToLayer: function (feature, latlng) {
+            // Los semáforos son Point -> los dibujamos como círculo distinto
+            return L.circleMarker(latlng, estiloSemaforoBase());
+        },
+        style: function (feature) {
+            // Solo aplica a las LineString (calles); ahora depende del tipo de vía
+            return estiloBase(feature);
+        },
+        onEachFeature: function (feature, layer) {
+            const p = feature.properties;
+
+            if (p.tipo_elemento === 'semaforo') {
+                layer.on('click', function (e) {
+                    seleccionarSemaforo(feature, layer);
+                    L.DomEvent.stopPropagation(e);
+                });
+                return; // el semáforo se edita en el panel, no con popup
+            }
+
+            if (p.tipo_elemento === 'conector_interno') {
+                // Tramo de glorieta: se dibuja para cerrar la curva visualmente,
+                // pero no es editable ni seleccionable (no tiene atributos propios).
+                return;
+            }
+
+            if (p.tipo_elemento === 'interseccion') {
+                layer.bindTooltip(
+                    'Intersección (junction)<br>' +
+                    'Área generada automáticamente por el simulador.<br>' +
+                    'No es una calle y no se puede editar aquí.',
+                    {
+                        sticky: true,      // sigue al mouse en vez de quedar fija
+                        direction: 'top',
+                        opacity: 0.9,
+                        className: 'tooltip-interseccion'
+                    }
+                );
+                return; // sigue sin ser clickeable ni seleccionable
+            }
+
+            // --- lógica de selección/edición para calles ---
+            layer.on('click', function (e) {
+                seleccionarCalle(feature, layer);
+                L.DomEvent.stopPropagation(e);
+            });
+
+            layer.on('mouseover', function () {
+                if (layer !== capaSeleccionada) {
+                    layer.setStyle(estiloHover(feature));
+                }
+            });
+
+            layer.on('mouseout', function () {
+                if (layer !== capaSeleccionada) {
+                    layer.setStyle(estiloBase(feature));
+                }
+            });
+
+            const etiquetaTipo = clasificarTipo(p.tipo) === 'rampa' ? ' (Rampa/enlace)' :
+                                  clasificarTipo(p.tipo) === 'principal' ? ' (Vía principal)' : '';
+
+            layer.bindPopup(`
+                <strong>${p.nombre_calle}</strong>${etiquetaTipo}<br>
+                ID: ${p.edge_id}<br>
+                Carriles: ${p.carriles}<br>
+                Velocidad: ${p.velocidad_max} km/h
+                ${p.controlado_por_semaforo ? '<br>Llega a semáforo' : ''}
+            `);
+        }
+    }).addTo(mapa);
+
+    if (capaRed.getBounds().isValid()) {
+        mapa.fitBounds(capaRed.getBounds(), { padding: [50, 50] });
+    }
+}
+
+// Limpia la selección actual, sea calle o semáforo, devolviéndola a su
+// estilo normal según su propio tipo.
+function limpiarSeleccionActual() {
+    if (!capaSeleccionada) return;
+
+    const p = capaSeleccionada.feature && capaSeleccionada.feature.properties;
+    if (p && p.tipo_elemento === 'semaforo') {
+        capaSeleccionada.setStyle(estiloSemaforoBase());
+    } else {
+        capaSeleccionada.setStyle(estiloBase(capaSeleccionada.feature));
+    }
+}
+
+// Seleccionar una calle
+function seleccionarCalle(feature, layer) {
+    limpiarSeleccionActual();
+
+    // Nueva selección
+    capaSeleccionada = layer;
+    featureSeleccionada = feature;
+    layer.setStyle(estiloSeleccionado());
+
+    // Mostrar panel de edición
+    mostrarPanelEdicion(feature, layer);
+}
+
+// Seleccionar un semáforo
+function seleccionarSemaforo(feature, layer) {
+    limpiarSeleccionActual();
+
+    capaSeleccionada = layer;
+    featureSeleccionada = feature;
+    layer.setStyle(estiloSemaforoSeleccionado());
+
+    mostrarPanelEdicionSemaforo(feature, layer);
+}
+
+// Panel de edición de una calle
+function mostrarPanelEdicion(feature, layer) {
+    const p = feature.properties;
+    const contenedor = document.getElementById('contenido-panel');
+
+    contenedor.innerHTML = `
+        <div class="nombre-calle">${p.nombre_calle}</div>
+        <div class="edge-id">ID: ${p.edge_id}</div>
+
+        <div class="campo">
+            <label>Número de carriles</label>
+            <input type="number" id="input-carriles" value="${p.carriles}" min="1" max="10" />
+            <div class="info" id="info-carriles">Valor original: ${p.carriles}</div>
+        </div>
+
+        <div class="campo">
+            <label>Velocidad máxima (km/h)</label>
+            <input type="number" id="input-velocidad" value="${p.velocidad_max}" min="5" max="120" step="5" />
+            <div class="info" id="info-velocidad">Valor original: ${p.velocidad_max} km/h</div>
+        </div>
+
+        <div class="campo">
+            <label>Tipo de vía</label>
+            <input type="text" id="input-tipo" value="${p.tipo || 'desconocido'}" readonly disabled style="background:#f0f0f0" />
+        </div>
+
+        <div class="campo">
+            <label>Longitud (metros)</label>
+            <input type="text" value="${p.longitud} m" readonly disabled style="background:#f0f0f0" />
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-primary" id="btn-guardar">Guardar cambios</button>
+            <button class="btn-secondary" id="btn-restaurar">Restaurar</button>
+        </div>
+        <div id="estado"></div>
+    `;
+
+    // Evento guardar
+    document.getElementById('btn-guardar').addEventListener('click', function () {
+        guardarCambios(feature, layer);
+    });
+
+    // Evento restaurar
+    document.getElementById('btn-restaurar').addEventListener('click', function () {
+        restaurarCambios(feature, layer);
+    });
+}
+
+// Panel de edición de un semáforo: permite ajustar la duración de cada
+// fase del programa. El "estado" (qué luces están en verde/ámbar/rojo en
+// cada fase) se muestra de solo lectura -- editarlo a mano es delicado
+// porque tiene que coincidir carácter por carácter con las conexiones
+// reales del semáforo, así que por ahora solo se ajustan tiempos.
+function mostrarPanelEdicionSemaforo(feature, layer) {
+    const p = feature.properties;
+    const contenedor = document.getElementById('contenido-panel');
+
+    const idsPrograma = Object.keys(p.programas || {});
+
+    if (idsPrograma.length === 0) {
+        contenedor.innerHTML = `
+            <div class="nombre-calle">Semáforo ${p.tls_id}</div>
+            <div class="edge-id">Tipo: ${p.tipo_control}</div>
+            <p class="vacio" style="padding:20px 0;">
+                Este semáforo no tiene un programa de fases disponible
+                (netconvert no pudo construirle uno). No hay nada que editar aquí.
+            </p>
+        `;
+        return;
+    }
+
+    const idPrograma = idsPrograma[0];
+    const fases = p.programas[idPrograma];
+
+    const filasFases = fases.map((fase, indice) => `
+        <div class="fase-item">
+            <div class="fase-titulo">Fase ${indice}</div>
+            <div class="campo" style="margin-bottom:6px;">
+                <label>Duración (segundos)</label>
+                <input type="number" class="input-fase-duracion" data-indice="${indice}"
+                       value="${fase.duracion}" min="1" max="300" />
+            </div>
+            <div class="fase-estado">estado: ${fase.estado}</div>
+        </div>
+    `).join('');
+
+    contenedor.innerHTML = `
+        <div class="nombre-calle">Semáforo ${p.tls_id}</div>
+        <div class="edge-id">Tipo: ${p.tipo_control} · Programa: ${idPrograma}</div>
+
+        <div class="campo">
+            <label>Calles entrantes</label>
+            <input type="text" value="${p.calles_entrantes.length}" readonly disabled style="background:#f0f0f0" />
+        </div>
+        <div class="campo">
+            <label>Calles salientes</label>
+            <input type="text" value="${p.calles_salientes.length}" readonly disabled style="background:#f0f0f0" />
+        </div>
+
+        <h2 style="margin-top:8px;">Fases del programa</h2>
+        ${filasFases}
+
+        <div class="btn-group">
+            <button class="btn-primary" id="btn-guardar-semaforo">Guardar cambios</button>
+            <button class="btn-secondary" id="btn-restaurar-semaforo">Restaurar</button>
+        </div>
+        <div id="estado"></div>
+    `;
+
+    document.getElementById('btn-guardar-semaforo').addEventListener('click', function () {
+        guardarCambiosSemaforo(feature, layer);
+    });
+
+    document.getElementById('btn-restaurar-semaforo').addEventListener('click', function () {
+        mostrarPanelEdicionSemaforo(feature, layer);
+    });
+}
+
+// Guarda las duraciones editadas de un semáforo -- manda PATCH al servidor
+async function guardarCambiosSemaforo(feature, layer) {
+    const p = feature.properties;
+    const estado = document.getElementById('estado');
+    const inputsDuracion = document.querySelectorAll('.input-fase-duracion');
+
+    const fases = [];
+    for (const input of inputsDuracion) {
+        const duracion = parseInt(input.value, 10);
+        if (isNaN(duracion) || duracion < 1 || duracion > 300) {
+            estado.textContent = 'Cada duración debe ser entre 1 y 300 segundos';
+            estado.className = 'visible';
+            return;
+        }
+        fases.push({
+            indice: parseInt(input.dataset.indice, 10),
+            duracion: duracion
+        });
+    }
+
+    estado.textContent = 'Guardando...';
+    estado.className = 'visible';
+
+    try {
+        const respuesta = await fetch(`/semaforo/${p.tls_id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fases })
+        });
+
+        if (!respuesta.ok) {
+            const err = await respuesta.json().catch(() => ({}));
+            throw new Error(err.error || 'El servidor rechazó el cambio');
+        }
+
+        // Reflejar los nuevos valores en las properties locales, para que
+        // si se reabre el panel sin recargar la red se vean actualizados.
+        const idPrograma = Object.keys(p.programas)[0];
+        fases.forEach(f => {
+            p.programas[idPrograma][f.indice].duracion = f.duracion;
+        });
+
+        estado.textContent = 'Cambios guardados en el servidor. Se aplicarán en la próxima simulación.';
+    } catch (error) {
+        estado.textContent = `No se pudo guardar: ${error.message}`;
+    }
+
+    estado.className = 'visible';
+}
+
+// Guardar cambios de una calle -- manda un PATCH real al servidor
+async function guardarCambios(feature, layer) {
+    const p = feature.properties;
+    const carrilesInput = document.getElementById('input-carriles');
+    const velocidadInput = document.getElementById('input-velocidad');
+    const estado = document.getElementById('estado');
+
+    const nuevosCarriles = parseInt(carrilesInput.value, 10);
+    const nuevaVelocidad = parseFloat(velocidadInput.value);
+
+    // Validar
+    if (isNaN(nuevosCarriles) || nuevosCarriles < 1 || nuevosCarriles > 10) {
+        estado.textContent = 'Los carriles deben ser entre 1 y 10';
+        estado.className = 'visible';
+        return;
+    }
+    if (isNaN(nuevaVelocidad) || nuevaVelocidad < 5 || nuevaVelocidad > 120) {
+        estado.textContent = 'La velocidad debe ser entre 5 y 120 km/h';
+        estado.className = 'visible';
+        return;
+    }
+
+    estado.textContent = 'Guardando...';
+    estado.className = 'visible';
+
+    try {
+        const respuesta = await fetch(`/infraestructura/${p.edge_id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ carriles: nuevosCarriles, velocidad_max: nuevaVelocidad })
+        });
+
+        if (!respuesta.ok) {
+            const err = await respuesta.json().catch(() => ({}));
+            throw new Error(err.error || 'El servidor rechazó el cambio');
+        }
+
+        // Solo se actualiza la UI si el servidor confirmó el guardado
+        p.carriles = nuevosCarriles;
+        p.velocidad_max = nuevaVelocidad;
+
+        layer.closePopup();
+        layer.bindPopup(`
+            <strong>${p.nombre_calle}</strong><br>
+            ID: ${p.edge_id}<br>
+            Carriles: ${p.carriles}<br>
+            Velocidad: ${p.velocidad_max} km/h
+        `);
+
+        estado.textContent = 'Cambios guardados en el servidor';
+        document.getElementById('info-carriles').textContent = `Valor original: ${p.carriles}`;
+        document.getElementById('info-velocidad').textContent = `Valor original: ${p.velocidad_max} km/h`;
+    } catch (error) {
+        estado.textContent = `No se pudo guardar: ${error.message}`;
+    }
+
+    estado.className = 'visible';
+}
+
+// Restaurar cambios (simulado)
+function restaurarCambios(feature, layer) {
+    const p = feature.properties;
+    document.getElementById('input-carriles').value = p.carriles;
+    document.getElementById('input-velocidad').value = p.velocidad_max;
+
+    const estado = document.getElementById('estado');
+    estado.textContent = 'Valores restaurados al original';
+    estado.className = 'visible';
+}
+
+// Disparar la simulación completa en el backend (esto llama, del lado del
+// servidor, a simular_escenario() con las modificaciones ya guardadas)
+async function dispararSimulacion() {
+    const boton = document.getElementById('btn-simular');
+    const textoOriginal = boton.textContent;
+    boton.textContent = 'Simulando...';
+    boton.disabled = true;
+
+    try {
+        const respuesta = await fetch('/simular', { method: 'POST' });
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+            throw new Error(datos.error || 'Error al simular');
+        }
+
+        mostrarResultado(datos);
+
+        // Si esta era la primera simulación de la sesión, la red recién se
+        // importó -- hay que cargarla y dibujarla, ya no está vacía.
+        if (!capaRed) {
+            document.getElementById('cargando').innerHTML = 'Cargando red de calles...';
+            document.getElementById('cargando').style.display = 'block';
+            const geojson = await cargarRed();
+            if (geojson) agregarCalles(geojson);
+        }
+    } catch (error) {
+        mostrarResultado({ error: error.message });
+    } finally {
+        boton.textContent = textoOriginal;
+        boton.disabled = false;
+    }
+}
+
+// Muestra los indicadores (o el error) en el modal flotante
+function mostrarResultado(indicadores) {
+    const contenedor = document.getElementById('contenido-resultado');
+
+    if (indicadores.error) {
+        contenedor.innerHTML = `
+            <strong>Error al simular</strong>
+            <p style="font-size:13px; color:var(--muted)">${indicadores.error}</p>
+        `;
+    } else {
+        contenedor.innerHTML = `
+            <strong>Resultados de la simulación</strong>
+            <div style="margin-top:10px; font-size:13px; line-height:1.8;">
+                <div>Tiempo promedio de espera: <strong>${indicadores.tiempo_promedio_espera ?? '-'} s</strong></div>
+                <div>Velocidad promedio: <strong>${indicadores.velocidad_promedio ?? '-'} km/h</strong></div>
+                <div>Longitud máxima de fila: <strong>${indicadores.longitud_max_fila ?? '-'} m</strong></div>
+                <div>Vehículos atendidos: <strong>${indicadores.vehiculos_atendidos ?? '-'}</strong></div>
+            </div>
+        `;
+    }
+
+    document.getElementById('modal-resultado').style.display = 'block';
+}
+
+// Inicialización
+async function init() {
+    initMap();
+    const geojson = await cargarRed();
+    if (geojson) {
+        agregarCalles(geojson);
+    }
+
+    document.getElementById('btn-simular').addEventListener('click', dispararSimulacion);
+    document.getElementById('btn-cerrar-resultado').addEventListener('click', function () {
+        document.getElementById('modal-resultado').style.display = 'none';
+    });
+}
+
+// Iniciar cuando la página esté cargada
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
