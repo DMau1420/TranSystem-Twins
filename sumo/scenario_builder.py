@@ -90,6 +90,13 @@ def construir_red_escenario(netconvertBinary, ruta_net_base_proyecto, carpeta_es
     if modificaciones_edges:
         _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges)
 
+        # Reducir numLanes en el .edg.xml no actualiza el .con.xml: si una
+        # <connection> sigue apuntando a un fromLane/toLane que ya no
+        # existe, netconvert truena al reconstruir con "Lane index is
+        # larger than number of lanes". Se limpian esas conexiones huérfanas
+        # antes de seguir.
+        _sanitizar_conexiones_por_cambio_carriles(archivo_con, modificaciones_edges)
+
     # ---------- 3) Modificar fases de semáforo en el .tll.xml ----------
     if modificaciones_semaforos:
         if not Path(archivo_tll).exists():
@@ -185,6 +192,59 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
         print(f" No se encontraron estos edge_id en la red: {ids_faltantes}")
 
 
+def _sanitizar_conexiones_por_cambio_carriles(archivo_con, modificaciones_edges):
+    """
+    Al reducir numLanes de un edge en el .edg.xml, el .con.xml puede seguir
+    teniendo <connection> que apuntan a un fromLane/toLane que ya no
+    existe. netconvert no lo tolera al reconstruir y truena con "Lane
+    index is larger than number of lanes". Aquí se eliminan esas
+    conexiones huérfanas antes de reconstruir la red -- decisión
+    conservadora: se prefiere perder un movimiento de giro puntual antes
+    que tronar toda la generación del escenario.
+
+    Solo aplica cuando se REDUCEN carriles; aumentarlos nunca invalida un
+    índice de carril ya existente.
+    """
+    cambios_por_id_base = {
+        m["edge_id"]: m for m in modificaciones_edges if m.get("carriles") is not None
+    }
+    if not cambios_por_id_base:
+        return
+
+    tree = ET.parse(archivo_con)
+    root = tree.getroot()
+
+    conexiones_eliminadas = 0
+    for conexion_el in list(root.findall("connection")):
+        from_id = conexion_el.get("from")
+        to_id = conexion_el.get("to")
+
+        cambio_from = next(
+            (m for id_base, m in cambios_por_id_base.items() if _pertenece_a_via(from_id, id_base)),
+            None,
+        )
+        cambio_to = next(
+            (m for id_base, m in cambios_por_id_base.items() if _pertenece_a_via(to_id, id_base)),
+            None,
+        )
+
+        from_lane = int(conexion_el.get("fromLane", "0"))
+        to_lane = int(conexion_el.get("toLane", "0"))
+
+        excede = (
+            (cambio_from is not None and from_lane >= int(cambio_from["carriles"])) or
+            (cambio_to is not None and to_lane >= int(cambio_to["carriles"]))
+        )
+        if excede:
+            root.remove(conexion_el)
+            conexiones_eliminadas += 1
+
+    if conexiones_eliminadas:
+        print(f" Se removieron {conexiones_eliminadas} conexión(es) que ya no cabían tras reducir carriles.")
+
+    tree.write(archivo_con, encoding="utf-8", xml_declaration=True)
+
+
 def _aplicar_modificaciones_semaforos(archivo_tll, modificaciones_semaforos):
     tree = ET.parse(archivo_tll)
     root = tree.getroot()
@@ -200,8 +260,8 @@ def _aplicar_modificaciones_semaforos(archivo_tll, modificaciones_semaforos):
             print(f" No se encontró el semáforo con tls_id='{tls_id}' en la red.")
             continue
 
-        tls_encontrados.add(tls_id)
         fases_el = tl_logic_el.findall("phase")
+        hubo_cambio_real = False
 
         for fase_cambio in cambio.get("fases", []):
             indice = fase_cambio["indice"]
@@ -212,8 +272,19 @@ def _aplicar_modificaciones_semaforos(archivo_tll, modificaciones_semaforos):
             fase_el = fases_el[indice]
             if fase_cambio.get("duracion") is not None:
                 fase_el.set("duration", str(int(fase_cambio["duracion"])))
+                hubo_cambio_real = True
             if fase_cambio.get("estado") is not None:
                 fase_el.set("state", fase_cambio["estado"])
+                hubo_cambio_real = True
+
+        # El usuario editó fases a mano: este semáforo deja de dejarle la
+        # decisión a SUMO (actuated, dinámico según detectores) y pasa a
+        # tiempo fijo, para que lo que escribió sea EXACTAMENTE lo que
+        # corre en la simulación. Los semáforos que nadie tocó se quedan
+        # tal cual venían (actuated), sin este cambio.
+        if hubo_cambio_real:
+            tl_logic_el.set("type", "static")
+            tls_encontrados.add(tls_id)
 
     tree.write(archivo_tll, encoding="utf-8", xml_declaration=True)
 

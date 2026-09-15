@@ -260,6 +260,16 @@
             word-break: break-all;
             margin-top: 4px;
         }
+        .aviso-static {
+            background: #fff8ec;
+            border: 1px solid #eadfc2;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #7a6a3a;
+            line-height: 1.4;
+            margin-bottom: 14px;
+        }
     </style>
 </head>
 <body>
@@ -329,6 +339,14 @@ let capaSeleccionada = null;
 let mapa = null;
 let featureSeleccionada = null;
 
+// Guarda los valores "de verdad" originales, tal como vinieron del
+// servidor la primera vez que se cargó la red. Se llenan UNA sola vez por
+// id, en agregarCalles(), y nunca se tocan después -- así "Restaurar"
+// siempre compara contra el dato real del servidor, nunca contra un
+// cambio previo que ya se haya guardado (ese era el bug anterior).
+const originalesCalles = new Map();     // edge_id -> { carriles, velocidad_max }
+const originalesSemaforos = new Map();  // tls_id  -> copia profunda de p.programas
+
 // Inicializar mapa
 function initMap() {
     mapa = L.map('mapa', {
@@ -345,11 +363,6 @@ function initMap() {
 }
 
 // ---------- CLASIFICACIÓN DE TIPO DE VÍA ----------
-// sumolib expone el "type" del edge tal como netconvert lo importó de OSM,
-// normalmente como "highway.motorway", "highway.motorway_link",
-// "highway.primary", "highway.residential", etc. Esta función normaliza
-// esos valores (o variantes sin el prefijo "highway.") en 3 categorías
-// visuales: rampa/enlace, vía principal, o calle normal.
 function clasificarTipo(tipoRaw) {
     const tipo = (tipoRaw || '').toLowerCase();
 
@@ -362,21 +375,15 @@ function clasificarTipo(tipoRaw) {
     return 'calle';
 }
 
-// Color sólido por categoría, usado tanto por las calles como por el
-// relleno de los polígonos de intersección (para que combinen).
 const COLOR_POR_CATEGORIA = {
     principal: '#1a1aff',
     rampa: '#9b59b6',
     calle: '#5c00e6'
 };
 
-// Estilos para las calles, según su categoría (principal / calle / rampa)
 function estiloBase(feature) {
     const p = feature && feature.properties;
 
-    // Polígonos de intersección: solo relleno, sin borde, para "tapar" el
-    // hueco que deja netconvert entre el final de una edge y el inicio de
-    // la siguiente dentro de la junction.
     if (p && p.tipo_elemento === 'interseccion') {
         const color = COLOR_POR_CATEGORIA[clasificarTipo(p.tipo)] || COLOR_POR_CATEGORIA.calle;
         return {
@@ -425,7 +432,6 @@ function estiloSeleccionado() {
 }
 
 function estiloHover(feature) {
-    // Mantiene el grosor/patrón propio del tipo, solo resalta el color
     const base = estiloBase(feature);
     return {
         ...base,
@@ -434,7 +440,6 @@ function estiloHover(feature) {
     };
 }
 
-// Estilo normal / seleccionado para el círculo de un semáforo
 function estiloSemaforoBase() {
     return {
         radius: 7,
@@ -461,9 +466,6 @@ async function cargarRed() {
         const response = await fetch('/red');
 
         if (response.status === 409) {
-            // Estado esperado la primera vez: todavía no se ha importado
-            // nada en esta sesión del servidor, aunque ya existan archivos
-            // de una corrida anterior en disco.
             document.getElementById('cargando').innerHTML = `
                 La red todavía no se ha importado en esta sesión.<br>
                 Da clic en <strong>"Simular escenario"</strong> para descargarla
@@ -477,7 +479,6 @@ async function cargarRed() {
 
         document.getElementById('cargando').style.display = 'none';
 
-        // Solo cuenta calles reales (excluye conectores internos y semáforos)
         const totalCalles = redData.features.filter(
             f => f.properties.tipo_elemento === 'calle'
         ).length;
@@ -494,14 +495,6 @@ async function cargarRed() {
     }
 }
 
-// Agregar calles (y semáforos) al mapa.
-// NOTA: se excluyen los conectores internos ("conector_interno") porque generan
-// una maraña visual en las intersecciones (SUMO crea un segmento interno por
-// cada movimiento de giro posible dentro de una junction). No son calles
-// editables, así que no aportan nada a la UI y solo estorban visualmente.
-// EXCEPCIÓN: los conectores marcados con "pertenece_a_glorieta" sí se dibujan,
-// porque en una rotonda ese conector no es un giro alternativo, es el único
-// tramo que sigue el contorno circular (sin él la curva se ve "cortada").
 function agregarCalles(geojson) {
     if (!geojson || !geojson.features) return;
 
@@ -512,27 +505,29 @@ function agregarCalles(geojson) {
             return p.pertenece_a_glorieta === true;
         },
         pointToLayer: function (feature, latlng) {
-            // Los semáforos son Point -> los dibujamos como círculo distinto
             return L.circleMarker(latlng, estiloSemaforoBase());
         },
         style: function (feature) {
-            // Solo aplica a las LineString (calles); ahora depende del tipo de vía
             return estiloBase(feature);
         },
         onEachFeature: function (feature, layer) {
             const p = feature.properties;
 
             if (p.tipo_elemento === 'semaforo') {
+                // Congela el estado original de este semáforo la primera
+                // vez que lo vemos, antes de que nadie edite nada.
+                if (!originalesSemaforos.has(p.tls_id)) {
+                    originalesSemaforos.set(p.tls_id, JSON.parse(JSON.stringify(p.programas || {})));
+                }
+
                 layer.on('click', function (e) {
                     seleccionarSemaforo(feature, layer);
                     L.DomEvent.stopPropagation(e);
                 });
-                return; // el semáforo se edita en el panel, no con popup
+                return;
             }
 
             if (p.tipo_elemento === 'conector_interno') {
-                // Tramo de glorieta: se dibuja para cerrar la curva visualmente,
-                // pero no es editable ni seleccionable (no tiene atributos propios).
                 return;
             }
 
@@ -542,16 +537,23 @@ function agregarCalles(geojson) {
                     'Área generada automáticamente por el simulador.<br>' +
                     'No es una calle y no se puede editar aquí.',
                     {
-                        sticky: true,      // sigue al mouse en vez de quedar fija
+                        sticky: true,
                         direction: 'top',
                         opacity: 0.9,
                         className: 'tooltip-interseccion'
                     }
                 );
-                return; // sigue sin ser clickeable ni seleccionable
+                return;
             }
 
-            // --- lógica de selección/edición para calles ---
+            // --- calles: congelar valores originales también ---
+            if (!originalesCalles.has(p.edge_id)) {
+                originalesCalles.set(p.edge_id, {
+                    carriles: p.carriles,
+                    velocidad_max: p.velocidad_max
+                });
+            }
+
             layer.on('click', function (e) {
                 seleccionarCalle(feature, layer);
                 L.DomEvent.stopPropagation(e);
@@ -587,8 +589,6 @@ function agregarCalles(geojson) {
     }
 }
 
-// Limpia la selección actual, sea calle o semáforo, devolviéndola a su
-// estilo normal según su propio tipo.
 function limpiarSeleccionActual() {
     if (!capaSeleccionada) return;
 
@@ -600,20 +600,16 @@ function limpiarSeleccionActual() {
     }
 }
 
-// Seleccionar una calle
 function seleccionarCalle(feature, layer) {
     limpiarSeleccionActual();
 
-    // Nueva selección
     capaSeleccionada = layer;
     featureSeleccionada = feature;
     layer.setStyle(estiloSeleccionado());
 
-    // Mostrar panel de edición
     mostrarPanelEdicion(feature, layer);
 }
 
-// Seleccionar un semáforo
 function seleccionarSemaforo(feature, layer) {
     limpiarSeleccionActual();
 
@@ -624,7 +620,6 @@ function seleccionarSemaforo(feature, layer) {
     mostrarPanelEdicionSemaforo(feature, layer);
 }
 
-// Panel de edición de una calle
 function mostrarPanelEdicion(feature, layer) {
     const p = feature.properties;
     const contenedor = document.getElementById('contenido-panel');
@@ -662,23 +657,20 @@ function mostrarPanelEdicion(feature, layer) {
         <div id="estado"></div>
     `;
 
-    // Evento guardar
     document.getElementById('btn-guardar').addEventListener('click', function () {
         guardarCambios(feature, layer);
     });
 
-    // Evento restaurar
     document.getElementById('btn-restaurar').addEventListener('click', function () {
         restaurarCambios(feature, layer);
     });
 }
 
-// Panel de edición de un semáforo: permite ajustar la duración de cada
-// fase del programa. El "estado" (qué luces están en verde/ámbar/rojo en
-// cada fase) se muestra de solo lectura -- editarlo a mano es delicado
-// porque tiene que coincidir carácter por carácter con las conexiones
-// reales del semáforo, así que por ahora solo se ajustan tiempos.
-function mostrarPanelEdicionSemaforo(feature, layer) {
+// Panel de edición de un semáforo. "estado" sigue siendo de solo lectura
+// (editarlo a mano puede crear conflictos de movimientos que se cruzan).
+// fasesOverride es opcional: se usa desde el botón "Restaurar" para
+// mostrar las fases originales sin tocar feature.properties.
+function mostrarPanelEdicionSemaforo(feature, layer, fasesOverride) {
     const p = feature.properties;
     const contenedor = document.getElementById('contenido-panel');
 
@@ -697,7 +689,7 @@ function mostrarPanelEdicionSemaforo(feature, layer) {
     }
 
     const idPrograma = idsPrograma[0];
-    const fases = p.programas[idPrograma];
+    const fases = fasesOverride || p.programas[idPrograma];
 
     const filasFases = fases.map((fase, indice) => `
         <div class="fase-item">
@@ -724,6 +716,12 @@ function mostrarPanelEdicionSemaforo(feature, layer) {
             <input type="text" value="${p.calles_salientes.length}" readonly disabled style="background:#f0f0f0" />
         </div>
 
+        <div class="aviso-static">
+            Al guardar, este semáforo pasa a <strong>tiempo fijo</strong> con las
+            duraciones que definas aquí abajo — deja de ajustarse solo según el tráfico.
+            Los semáforos que no edites siguen funcionando de forma automática, sin cambios.
+        </div>
+
         <h2 style="margin-top:8px;">Fases del programa</h2>
         ${filasFases}
 
@@ -739,11 +737,20 @@ function mostrarPanelEdicionSemaforo(feature, layer) {
     });
 
     document.getElementById('btn-restaurar-semaforo').addEventListener('click', function () {
-        mostrarPanelEdicionSemaforo(feature, layer);
+        const original = originalesSemaforos.get(p.tls_id);
+        const idOriginal = original ? Object.keys(original)[0] : null;
+        const fasesOriginales = idOriginal ? original[idOriginal] : null;
+
+        mostrarPanelEdicionSemaforo(feature, layer, fasesOriginales);
+
+        const estado = document.getElementById('estado');
+        if (estado) {
+            estado.textContent = 'Valores restaurados al original (sin guardar todavía)';
+            estado.className = 'visible';
+        }
     });
 }
 
-// Guarda las duraciones editadas de un semáforo -- manda PATCH al servidor
 async function guardarCambiosSemaforo(feature, layer) {
     const p = feature.properties;
     const estado = document.getElementById('estado');
@@ -778,14 +785,15 @@ async function guardarCambiosSemaforo(feature, layer) {
             throw new Error(err.error || 'El servidor rechazó el cambio');
         }
 
-        // Reflejar los nuevos valores en las properties locales, para que
-        // si se reabre el panel sin recargar la red se vean actualizados.
+        // Refleja los nuevos valores en las properties locales (estado
+        // "actual" de trabajo). originalesSemaforos NO se toca aquí --
+        // sigue guardando el valor real del servidor para el botón Restaurar.
         const idPrograma = Object.keys(p.programas)[0];
         fases.forEach(f => {
             p.programas[idPrograma][f.indice].duracion = f.duracion;
         });
 
-        estado.textContent = 'Cambios guardados en el servidor. Se aplicarán en la próxima simulación.';
+        estado.textContent = 'Cambios guardados. Este semáforo correrá a tiempo fijo en la próxima simulación.';
     } catch (error) {
         estado.textContent = `No se pudo guardar: ${error.message}`;
     }
@@ -793,7 +801,6 @@ async function guardarCambiosSemaforo(feature, layer) {
     estado.className = 'visible';
 }
 
-// Guardar cambios de una calle -- manda un PATCH real al servidor
 async function guardarCambios(feature, layer) {
     const p = feature.properties;
     const carrilesInput = document.getElementById('input-carriles');
@@ -803,7 +810,6 @@ async function guardarCambios(feature, layer) {
     const nuevosCarriles = parseInt(carrilesInput.value, 10);
     const nuevaVelocidad = parseFloat(velocidadInput.value);
 
-    // Validar
     if (isNaN(nuevosCarriles) || nuevosCarriles < 1 || nuevosCarriles > 10) {
         estado.textContent = 'Los carriles deben ser entre 1 y 10';
         estado.className = 'visible';
@@ -830,7 +836,9 @@ async function guardarCambios(feature, layer) {
             throw new Error(err.error || 'El servidor rechazó el cambio');
         }
 
-        // Solo se actualiza la UI si el servidor confirmó el guardado
+        // Igual que con semáforos: solo se actualiza el estado "de
+        // trabajo" (p.carriles/p.velocidad_max). originalesCalles se
+        // queda intacto con el valor real del servidor para Restaurar.
         p.carriles = nuevosCarriles;
         p.velocidad_max = nuevaVelocidad;
 
@@ -843,8 +851,8 @@ async function guardarCambios(feature, layer) {
         `);
 
         estado.textContent = 'Cambios guardados en el servidor';
-        document.getElementById('info-carriles').textContent = `Valor original: ${p.carriles}`;
-        document.getElementById('info-velocidad').textContent = `Valor original: ${p.velocidad_max} km/h`;
+        document.getElementById('info-carriles').textContent = `Valor guardado: ${p.carriles} (original: ${originalesCalles.get(p.edge_id).carriles})`;
+        document.getElementById('info-velocidad').textContent = `Valor guardado: ${p.velocidad_max} km/h (original: ${originalesCalles.get(p.edge_id).velocidad_max} km/h)`;
     } catch (error) {
         estado.textContent = `No se pudo guardar: ${error.message}`;
     }
@@ -852,19 +860,21 @@ async function guardarCambios(feature, layer) {
     estado.className = 'visible';
 }
 
-// Restaurar cambios (simulado)
+// Restaurar cambios: usa el valor congelado en originalesCalles, nunca
+// el de p (que puede ya reflejar un guardado anterior).
 function restaurarCambios(feature, layer) {
     const p = feature.properties;
-    document.getElementById('input-carriles').value = p.carriles;
-    document.getElementById('input-velocidad').value = p.velocidad_max;
+    const original = originalesCalles.get(p.edge_id);
+    if (!original) return;
+
+    document.getElementById('input-carriles').value = original.carriles;
+    document.getElementById('input-velocidad').value = original.velocidad_max;
 
     const estado = document.getElementById('estado');
-    estado.textContent = 'Valores restaurados al original';
+    estado.textContent = 'Valores restaurados al original (sin guardar todavía)';
     estado.className = 'visible';
 }
 
-// Disparar la simulación completa en el backend (esto llama, del lado del
-// servidor, a simular_escenario() con las modificaciones ya guardadas)
 async function dispararSimulacion() {
     const boton = document.getElementById('btn-simular');
     const textoOriginal = boton.textContent;
@@ -881,8 +891,6 @@ async function dispararSimulacion() {
 
         mostrarResultado(datos);
 
-        // Si esta era la primera simulación de la sesión, la red recién se
-        // importó -- hay que cargarla y dibujarla, ya no está vacía.
         if (!capaRed) {
             document.getElementById('cargando').innerHTML = 'Cargando red de calles...';
             document.getElementById('cargando').style.display = 'block';
@@ -897,7 +905,6 @@ async function dispararSimulacion() {
     }
 }
 
-// Muestra los indicadores (o el error) en el modal flotante
 function mostrarResultado(indicadores) {
     const contenedor = document.getElementById('contenido-resultado');
 
@@ -921,7 +928,6 @@ function mostrarResultado(indicadores) {
     document.getElementById('modal-resultado').style.display = 'block';
 }
 
-// Inicialización
 async function init() {
     initMap();
     const geojson = await cargarRed();
@@ -935,7 +941,6 @@ async function init() {
     });
 }
 
-// Iniciar cuando la página esté cargada
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>

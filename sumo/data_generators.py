@@ -156,7 +156,7 @@ def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
     """Convierte una red de SUMO a GeoJSON con coordenadas geográficas REALES"""
 
     print(f" Leyendo red desde: {ruta_net_xml}")
-    red = sumolib.net.readNet(ruta_net_xml, withInternal=True)
+    red = sumolib.net.readNet(ruta_net_xml, withInternal=True, withPrograms=True)
     print(f" Total edges en la red (sin filtrar): {len(red.getEdges(withInternal=True))}")
 
     # ---------- CONECTORES DE ANILLO EN GLORIETAS ----------
@@ -284,36 +284,70 @@ def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
     features = features_interseccion + features
 
     # ---------- SEMÁFOROS ----------
+    # OJO: antes esto iteraba red.getNodes() filtrando por tipo de nodo, y
+    # buscaba el programa con red.getTLSSecure(nodo.getID()). El bug: el id
+    # de un <tlLogic> (y el que aparece en el atributo "tl" de cada
+    # <connection>) NO siempre es igual al id del nodo/junction -- sobre
+    # todo cuando netconvert fusiona varios nodos OSM en un solo "cluster"
+    # (--junctions.join). getTLSSecure(), si no encuentra ese id exacto en
+    # su tabla interna, en vez de fallar CREA SILENCIOSAMENTE un TLS vacío
+    # (así se llama "Secure": nunca lanza excepción). Por eso los semáforos
+    # salían con "programas": {} -- ninguno estaba mal calculado por SUMO,
+    # el bug era de lookup en este archivo.
+    #
+    # La forma correcta es iterar los TLS reales (red.getTrafficLights()),
+    # que sumolib ya construyó bien indexados por su id verdadero al leer
+    # el <tlLogic> del net.xml. De cada TLS sacamos sus conexiones
+    # (inLane, outLane, linkNo) para inferir: el nodo real que controla
+    # (para la coordenada del marcador) y las calles entrantes/salientes.
+    #
+    # Además, tls.getID() es EL MISMO id que usa <tlLogic id="..."> en el
+    # .tll.xml -- es el que hay que mandar de vuelta al editar fases desde
+    # el frontend, o _aplicar_modificaciones_semaforos nunca va a encontrar
+    # coincidencia (aunque los programas ya se vean bien en el mapa).
+    #
+    # Efecto colateral esperado y correcto: los semáforos que netconvert
+    # reportó como "does not control any links; it will not be build" no
+    # tienen conexiones ni programa, así que no aparecen en
+    # red.getTrafficLights() y ya no se listan aquí. Antes sí aparecían
+    # como marcador fantasma sin nada editable; ahora simplemente no se
+    # dibujan, que es más honesto con lo que SUMO en verdad construyó.
     total_nodos_tls = 0
-    for nodo in red.getNodes():
-        if nodo.getType() not in (
-            "traffic_light", "traffic_light_unregulated", "traffic_light_right_on_red",
-        ):
+    for tls in red.getTrafficLights():
+        conexiones = tls.getConnections()
+        if not conexiones:
             continue
 
-        total_nodos_tls += 1
-        x, y = nodo.getCoord()
+        edges_entrantes = {c[0].getEdge() for c in conexiones}
+        edges_salientes = {c[1].getEdge() for c in conexiones}
+
+        # Nodo real controlado por este TLS: el nodo "to" de cualquiera de
+        # sus edges entrantes (todas las conexiones de un mismo TLS
+        # convergen en el mismo junction o cluster).
+        nodo_control = next(iter(edges_entrantes)).getToNode()
+        x, y = nodo_control.getCoord()
         lon, lat = red.convertXY2LonLat(x, y)
 
         programas = {}
-        try:
-            tls = red.getTLSSecure(nodo.getID())
-            for prog_id, programa in tls.getPrograms().items():
-                programas[prog_id] = [
-                    {"duracion": f.duration, "estado": f.state}
-                    for f in programa.getPhases()
-                ]
-        except Exception as e:
-            print(f" No se pudo leer lógica TLS de {nodo.getID()}: {e}")
+        for prog_id, programa in tls.getPrograms().items():
+            programas[prog_id] = [
+                {"duracion": f.duration, "estado": f.state}
+                for f in programa.getPhases()
+            ]
 
+        total_nodos_tls += 1
         features.append({
             "type": "Feature",
             "properties": {
                 "tipo_elemento": "semaforo",
-                "tls_id": nodo.getID(),
-                "tipo_control": nodo.getType(),
-                "calles_entrantes": [e.getID() for e in nodo.getIncoming() if e.getFunction() != "internal"],
-                "calles_salientes": [e.getID() for e in nodo.getOutgoing() if e.getFunction() != "internal"],
+                # IMPORTANTE: este id es el mismo que usa el <tlLogic> real
+                # en el .tll.xml -- es el que hay que mandar de vuelta al
+                # editar fases, o _aplicar_modificaciones_semaforos no va a
+                # encontrar coincidencia.
+                "tls_id": tls.getID(),
+                "tipo_control": nodo_control.getType(),
+                "calles_entrantes": [e.getID() for e in edges_entrantes if e.getFunction() != "internal"],
+                "calles_salientes": [e.getID() for e in edges_salientes if e.getFunction() != "internal"],
                 "programas": programas,
             },
             "geometry": {"type": "Point", "coordinates": [lon, lat]},
