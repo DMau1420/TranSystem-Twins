@@ -11,7 +11,6 @@ def cargar_herramientas_sumo():
     if tools_path not in sys.path:
         sys.path.append(tools_path)
     
-
     try:
         herramientas = {
             # Binarios principales
