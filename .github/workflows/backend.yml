@@ -1,7 +1,6 @@
 name: FastAPI CI
 
 on:
-  workflow_dipatch:
   push:
     banches:
       - main
@@ -25,7 +24,7 @@ jobs:
           POSTGRES_USER: gis
           POSTGRES_PASSWORD: password
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
