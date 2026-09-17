@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MapDataProvider } from './context/MapDataContext';
+import { MapThemeProvider } from './context/MapThemeContext';
 import MapContainer from './components/map/MapContainer';
 import MapDataPanel from './components/MapDataPanel';
 import SearchBar from './components/SearchBar';
@@ -40,27 +41,29 @@ function AppLayout() {
   const { user } = useAuth();
 
   return (
-    <MapDataProvider>
-      <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-        <Sidebar
-          active="mapa"
-          onNavigate={(id) => {
-            if (id === 'perfil') return; // ajusta cuando exista la página de perfil
-            // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
-            console.log('nav ->', id);
-          }}
-          user={{
-            name: user?.name ?? user?.username ?? 'Invitado',
-            role: user?.role ?? 'VIEWER',
-          }}
-        />
-        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-          <MapContainer />
-          <SearchBar />
-          <MapDataPanel />
+    <MapThemeProvider>
+      <MapDataProvider>
+        <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+          <Sidebar
+            active="mapa"
+            onNavigate={(id) => {
+              if (id === 'perfil') return; // ajusta cuando exista la página de perfil
+              // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
+              console.log('nav ->', id);
+            }}
+            user={{
+              name: user?.name ?? user?.username ?? 'Invitado',
+              role: user?.role ?? 'VIEWER',
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+            <MapContainer />
+            <SearchBar />
+            <MapDataPanel />
+          </div>
         </div>
-      </div>
-    </MapDataProvider>
+      </MapDataProvider>
+    </MapThemeProvider>
   );
 }
 
