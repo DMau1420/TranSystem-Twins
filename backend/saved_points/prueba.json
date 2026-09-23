@@ -1,0 +1,27 @@
+{
+            "proyecto_id": 3,
+            "nombre": "Interseccion Av. Insurgentes",
+            "geometria": {
+                "id": "b3e33657-6c14-4c60-aeca-0fee5b22ca4a",
+                "lat": 0.0,
+                "lng": 0.0,
+                "geoJson": {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [-99.182682, 19.448788],
+                            [-99.18045, 19.456395],
+                            [-99.175816, 19.471448],
+                            [-99.188347, 19.469505],
+                            [-99.190407, 19.460442],
+                            [-99.182682, 19.448788]
+                        ]]
+                    }
+                },
+                "street": "algo",
+                "displayName": "otro algo"
+            },
+            "demanda_vehicular": 100
+        }

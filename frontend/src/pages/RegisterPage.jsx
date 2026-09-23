@@ -48,10 +48,7 @@ function RegisterPage() {
 
     setIsLoading(true);
 
-    // Simulate brief network delay for UX
-    await new Promise((r) => setTimeout(r, 600));
-
-    const result = register({
+    const result = await register({
       correo: form.correo,
       contrasena: form.contrasena,
       nombre: form.nombre,
@@ -67,7 +64,7 @@ function RegisterPage() {
     }
 
     setShowSuccess(true);
-    setTimeout(() => navigate('/'), 1000);
+    setTimeout(() => navigate('/'), 800);
   };
 
   return (

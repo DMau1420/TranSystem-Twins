@@ -25,10 +25,7 @@ function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulate brief network delay for UX
-    await new Promise((r) => setTimeout(r, 600));
-
-    const result = login(correo, contrasena);
+    const result = await login(correo, contrasena);
 
     if (!result.success) {
       setError(result.error);
@@ -37,7 +34,7 @@ function LoginPage() {
     }
 
     setShowSuccess(true);
-    setTimeout(() => navigate('/'), 1000);
+    setTimeout(() => navigate('/'), 800);
   };
 
   return (

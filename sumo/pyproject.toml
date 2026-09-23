@@ -1,0 +1,11 @@
+[project]
+name = "sumo"
+version = "0.1.0"
+description = "TranSystem Twins SUMO"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "requests>=2.34.2",
+    "sumolib>=1.27.1",
+    "traci>=1.27.1",
+]
