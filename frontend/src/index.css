@@ -154,3 +154,19 @@ code {
 	width: 100%;
 	height: 100vh;
 }
+
+/* Modo oscuro del mapa: invierte los colores de los tiles OSM claros
+   para simular un basemap oscuro, sin depender de un proveedor externo
+   que requiera API key (ej. CartoDB). */
+.sys-map-dark .leaflet-tile-pane {
+	filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.8);
+}
+
+/* Los marcadores, popups y controles de Leaflet NO deben invertirse,
+   solo las tiles del mapa base. Por eso el filtro va específicamente
+   en .leaflet-tile-pane y no en .sys-map-dark completo. */
+.sys-map-dark .leaflet-marker-icon,
+.sys-map-dark .leaflet-marker-shadow,
+.sys-map-dark .leaflet-popup {
+	filter: none;
+}
