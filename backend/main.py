@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.database import Base, engine
-from routers import r_auth, r_escenarios, r_points, r_proyectos
+from routers import r_auth, r_escenarios, r_points, r_proyectos, r_resultados
 
 Base.metadata.create_all(bind=engine)
 
@@ -19,6 +19,7 @@ app.add_middleware(
 app.include_router(r_auth.router)
 app.include_router(r_proyectos.router)
 app.include_router(r_escenarios.router)
+app.include_router(r_resultados.router)
 app.include_router(r_points.router)
 
 @app.post("/resultado-sumo", summary="endpoint de prueba para retorno de datos post simulacion sumo")

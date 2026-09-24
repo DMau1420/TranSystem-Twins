@@ -2,12 +2,12 @@ name: FastAPI CI
 
 on:
   push:
-    banches:
+    branches:
       - main
       - backend
       - integracion
   pull_request:
-    banches:
+    branches:
       - main
       - backend
       - integracion
@@ -32,21 +32,24 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
 
-      - name: instalar uv
+      - name: Instalar uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-          cache-dependency-glob: "backend/pyproyect.toml"
+          enable-cache: true
+          cache-dependency-glob: "backend/pyproject.toml"
 
-      - name: instalar python
+      - name: Instalar Python
         run: uv python install
 
-      - name: ejecutar pruebas
+      - name: Ejecutar pruebas
         working-directory: ./backend
         env:
-          DATABASE_URL: postgresql://gis:password@localhost:5432/gis
-          SECRET_KEY: Bon Voyage
-          ALGORITHM: HS256
+          DATABASE_URL: postgresql://gis:password@localhost:5433/gis
+          SECRET_KEY: "Bon Voyage"
+          ALGORITHM: "HS256"
         run: uv run pytest -v
+
