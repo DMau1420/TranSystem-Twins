@@ -8,7 +8,8 @@ def ejecutar_simulacion(sumo_binary, config_file, carpeta_salida, archivo_result
     ya generados por construir_red_escenario y generar_rutas_aleatorias).
     """
     ruta_resultados = carpeta_salida / archivo_resultados
-
+    ruta_queue = carpeta_salida / "queue.xml"
+    
     try:
         traci.start([
             sumo_binary,
@@ -17,6 +18,7 @@ def ejecutar_simulacion(sumo_binary, config_file, carpeta_salida, archivo_result
             "--start",
             "--quit-on-end",
             "--no-step-log",
+            "--queue-output", ruta_queue,
         ])
     except Exception as e:
         print(f"Error al iniciar SUMO: {e}")
