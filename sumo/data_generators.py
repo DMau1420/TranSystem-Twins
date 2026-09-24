@@ -2,7 +2,6 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import time
-from utils import generar_ruta_salida
 import requests
 import sumolib
 import json
@@ -79,12 +78,18 @@ def consulta_overpass(bbox, intentos_max=3):
     return None
 
 
-def descargar_red(bbox, archivo_osm = "red_vial.osm"):
+def descargar_red(bbox, carpeta_salida, archivo_osm="red_vial.osm"):
+    """
+    carpeta_salida: Path ya resuelto (normalmente utils.carpeta_proyecto(id))
+    donde se escribe el .osm. Antes esto usaba generar_ruta_salida(), que le
+    pegaba un timestamp y siempre escribía en la misma carpeta plana
+    data/ -- eso hacía que cada importación dejara un archivo nuevo para
+    siempre, y que archivos de distintos proyectos vivieran revueltos.
+    """
     osm_data = consulta_overpass(bbox)
 
     if osm_data:
-
-        ruta_osm = generar_ruta_salida(archivo_osm)
+        ruta_osm = carpeta_salida / archivo_osm
 
         with open(ruta_osm, "w", encoding="utf-8") as f:
             f.write(osm_data)
@@ -92,9 +97,9 @@ def descargar_red(bbox, archivo_osm = "red_vial.osm"):
 
         return ruta_osm
 
-def conversor_osm_to_netxml(netconvertBinary, archivo_osm, archivo_red_vial = "map_net.net.xml"):
+def conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta_salida, archivo_red_vial="red_base.net.xml"):
 
-    ruta_red_vial = generar_ruta_salida(archivo_red_vial)
+    ruta_red_vial = carpeta_salida / archivo_red_vial
     
     command = [
         netconvertBinary,
@@ -152,7 +157,7 @@ def conversor_osm_to_netxml(netconvertBinary, archivo_osm, archivo_red_vial = "m
         print(e.stderr, file=sys.stderr)
         return None
 
-def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
+def conversor_net_to_geojson(ruta_net_xml, carpeta_salida, nombre_archivo="red_base.geojson"):
     """Convierte una red de SUMO a GeoJSON con coordenadas geográficas REALES"""
 
     print(f" Leyendo red desde: {ruta_net_xml}")
@@ -360,7 +365,7 @@ def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
 
     geojson_data = {"type": "FeatureCollection", "features": features}
 
-    ruta_geojson = generar_ruta_salida(nombre_archivo)
+    ruta_geojson = carpeta_salida / nombre_archivo
     with ruta_geojson.open("w", encoding="utf-8") as f:
         json.dump(geojson_data, f, ensure_ascii=False, indent=4)
 
@@ -368,8 +373,8 @@ def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
 
     return ruta_geojson
 
-def generar_rutas_aleatorias(random_trips,archivo_red_vial,demanda_vehicular, nombre_archivo= "cross.rou.xml"):
-    ruta_salida = generar_ruta_salida(nombre_archivo)
+def generar_rutas_aleatorias(random_trips, archivo_red_vial, demanda_vehicular, carpeta_salida, nombre_archivo="demanda.rou.xml"):
+    ruta_salida = carpeta_salida / nombre_archivo
 
     begin_time = 0
     tiempo_simulacion = 3600
@@ -397,11 +402,11 @@ def generar_rutas_aleatorias(random_trips,archivo_red_vial,demanda_vehicular, no
         print(e.stderr, file=sys.stderr)
         return None
 
-def crear_sumo_config(net, rou, nombre_config = "simulacion.sumocfg"):
+def crear_sumo_config(net, rou, carpeta_salida, nombre_config="simulacion.sumocfg"):
     # Crear el elemento raíz
     root = ET.Element("configuration")
 
-    ruta_config = generar_ruta_salida(nombre_config)
+    ruta_config = carpeta_salida / nombre_config
     # Sección de entrada 
     input_node = ET.SubElement(root, "input")
     ET.SubElement(input_node, "net-file", value=str(net))

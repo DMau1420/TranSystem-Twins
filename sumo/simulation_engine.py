@@ -1,14 +1,13 @@
 import traci
 from sumo_tools import verificar_archivo_salida
-from utils import generar_ruta_salida
 
 
-def ejecutar_simulacion(sumo_binary, config_file, archivo_resultados="tripinfo.xml", duracion_segundos=7200):
+def ejecutar_simulacion(sumo_binary, config_file, carpeta_salida, archivo_resultados="tripinfo.xml", duracion_segundos=7200):
     """
     Ejecuta la simulación de un escenario ya construido (red + rutas + config
     ya generados por construir_red_escenario y generar_rutas_aleatorias).
     """
-    ruta_resultados = generar_ruta_salida(archivo_resultados)
+    ruta_resultados = carpeta_salida / archivo_resultados
 
     try:
         traci.start([
@@ -46,4 +45,3 @@ def ejecutar_simulacion(sumo_binary, config_file, archivo_resultados="tripinfo.x
         except Exception:
             pass
         return False
-

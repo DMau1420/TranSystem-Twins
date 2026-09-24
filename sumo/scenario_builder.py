@@ -156,6 +156,7 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
 
     ids_base_encontrados = set()
     total_segmentos_modificados = 0
+    total_lanes_huerfanos_eliminados = 0
 
     for edge_el in root.findall("edge"):
         edge_id = edge_el.get("id")
@@ -173,7 +174,23 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
         total_segmentos_modificados += 1
 
         if cambio.get("carriles") is not None:
-            edge_el.set("numLanes", str(int(cambio["carriles"])))
+            nuevo_num_lanes = int(cambio["carriles"])
+            edge_el.set("numLanes", str(nuevo_num_lanes))
+
+            # netconvert escribe <lane index="N" .../> como hijo del
+            # <edge> SOLO para los carriles que tienen algún atributo
+            # propio distinto al del resto (velocidad, restricciones de
+            # tipo de vehículo, ancho -- cosas que --osm.all-attributes
+            # conserva). Si se baja numLanes, cualquier <lane> con
+            # index >= numLanes nuevo queda "colgado" apuntando a un
+            # carril que ya no existe, y netconvert truena al reconstruir
+            # con "Lane index is larger than number of lanes". Se
+            # eliminan esos <lane> huérfanos aquí mismo.
+            for lane_el in list(edge_el.findall("lane")):
+                indice_lane = int(lane_el.get("index", "0"))
+                if indice_lane >= nuevo_num_lanes:
+                    edge_el.remove(lane_el)
+                    total_lanes_huerfanos_eliminados += 1
 
         if cambio.get("velocidad_max") is not None:
             # Los archivos planos de SUMO guardan velocidad en m/s;
@@ -188,6 +205,11 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
         f"Carriles/velocidad aplicados: {len(ids_base_encontrados)}/{len(modificaciones_edges)} "
         f"vías encontradas ({total_segmentos_modificados} segmentos internos modificados en total)."
     )
+    if total_lanes_huerfanos_eliminados:
+        print(
+            f" Se removieron {total_lanes_huerfanos_eliminados} <lane> huérfano(s) "
+            f"que quedaron apuntando a carriles eliminados."
+        )
     if ids_faltantes:
         print(f" No se encontraron estos edge_id en la red: {ids_faltantes}")
 
