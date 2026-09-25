@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer as LeafletMap, TileLayer, ZoomControl, useMap } from 'react-leaflet';
+import {
+  MapContainer as LeafletMap,
+  TileLayer,
+  ZoomControl,
+  useMap,
+  Marker,
+  Polyline,
+  Polygon,
+  Tooltip,
+} from 'react-leaflet';
 import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
@@ -14,6 +23,7 @@ import LayersPanel from './LayersPanel';
 import { useMapData } from '../../context/MapDataContext';
 import { useMapTheme } from '../../context/MapThemeContext';
 import { reverseGeocode } from '../../utils/geocoding';
+import { sysCore } from '../../styles/sysCore';
 import RoadNetworkLayer from './RoadNetworkLayer';
 import SumoNetworkLayer from './SumoNetworkLayer';
 
@@ -37,7 +47,7 @@ const OSM_ATTRIBUTION =
 
 const GeomanControls = () => {
   const map = useMap();
-  const { addPoint, addRoute, addZone } = useMapData();
+  const { addPoint, addRoute, addZone, markDrawn } = useMapData();
 
   useEffect(() => {
     if (!map || !map.pm) return;
@@ -66,29 +76,32 @@ const GeomanControls = () => {
         } catch (err) {
           console.error('Error en reverse geocoding:', err);
         }
-        addPoint({
+        const id = addPoint({
           lat,
           lng,
           geoJson,
           street: streetInfo?.street ?? null,
           displayName: streetInfo?.displayName ?? null,
         });
+        markDrawn(id, layer);
       } else if (shape === 'Line') {
         const latlngs = layer.getLatLngs();
         const distanceMeters = latlngs.reduce((total, curr, idx) => {
           if (idx === 0) return 0;
           return total + map.distance(latlngs[idx - 1], curr);
         }, 0);
-        addRoute({
+        const id = addRoute({
           coordinates: latlngs.map((p) => [p.lat, p.lng]),
           geoJson,
           distanceMeters,
         });
+        markDrawn(id, layer);
       } else if (shape === 'Polygon') {
-        addZone({
+        const id = addZone({
           coordinates: layer.getLatLngs(),
           geoJson: geoJson.geometry,
         });
+        markDrawn(id, layer);
       }
     };
 
@@ -98,9 +111,47 @@ const GeomanControls = () => {
       map.off('pm:create', handleCreate);
       if (map.pm) map.pm.removeControls();
     };
-  }, [map, addPoint, addRoute, addZone]);
+  }, [map, addPoint, addRoute, addZone, markDrawn]);
 
   return null;
+};
+
+// Dibuja lo que llega de un escenario cargado (hydrate). Lo dibujado por
+// Geoman en la sesión actual (drawnIds) se deja fuera para no duplicarlo:
+// esa figura ya está en el mapa como capa nativa de Geoman, arrastrable.
+const FeatureLayers = () => {
+  const { points, routes, zones, drawnIds } = useMapData();
+
+  return (
+    <>
+      {points.filter((p) => !drawnIds.has(p.id)).map((p) => (
+        <Marker key={p.id} position={[p.lat, p.lng]} />
+      ))}
+      {routes.filter((r) => !drawnIds.has(r.id)).map((r) => (
+        <Polyline
+          key={r.id}
+          positions={r.coordinates}
+          pathOptions={{ color: sysCore.color.cyan, weight: 4 }}
+        />
+      ))}
+      {zones.filter((z) => !drawnIds.has(z.id)).map((z) => (
+        <Polygon
+          key={z.id}
+          positions={z.coordinates}
+          pathOptions={{
+            color: sysCore.color.amber,
+            fillColor: sysCore.color.amber,
+            fillOpacity: 0.15,
+            weight: 2,
+          }}
+        >
+          <Tooltip permanent direction="center" className="sys-zone-tooltip">
+            {(z.vehiculos_por_hora ?? 0).toLocaleString('es-MX')} veh/h
+          </Tooltip>
+        </Polygon>
+      ))}
+    </>
+  );
 };
 
 const FlyToSearchResult = () => {
@@ -111,6 +162,26 @@ const FlyToSearchResult = () => {
     if (!map || !searchTarget) return;
     map.flyTo([searchTarget.lat, searchTarget.lng], 17, { duration: 1.2 });
   }, [map, searchTarget]);
+
+  return null;
+};
+
+// Vuela a lo que se acaba de cargar (abrir un escenario desde Proyectos).
+// flyToTarget se recalcula en cada hydrate(), así que un solo punto usa
+// flyTo y varios elementos usan flyToBounds con margen.
+const FlyToScenario = () => {
+  const map = useMap();
+  const { flyToTarget } = useMapData();
+
+  useEffect(() => {
+    if (!map || !flyToTarget?.bounds?.length) return;
+    const { bounds } = flyToTarget;
+    if (bounds.length === 1) {
+      map.flyTo(bounds[0], 16, { duration: 1.2 });
+    } else {
+      map.flyToBounds(bounds, { padding: [60, 60], duration: 1.2 });
+    }
+  }, [map, flyToTarget]);
 
   return null;
 };
@@ -135,6 +206,25 @@ const InvalidateOnResize = () => {
   return null;
 };
 
+// Estilo del tooltip de zonas. Va aquí (no en un .css) porque Leaflet genera
+// el tooltip fuera del árbol de React normal; ajusta los tokens si cambias
+// la paleta SYS_CORE.
+const ZONE_TOOLTIP_CSS = `
+.sys-zone-tooltip {
+  background: rgba(10, 12, 16, 0.9);
+  border: 1px solid ${sysCore.color.amber};
+  color: ${sysCore.color.amber};
+  font-family: ${sysCore.font.mono};
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  box-shadow: none;
+}
+.sys-zone-tooltip::before { display: none; }
+`;
+
 export const MapContainer = () => {
   const [showRoadNetwork, setShowRoadNetwork] = useState(false);
   const [roadNetworkLoading, setRoadNetworkLoading] = useState(false);
@@ -146,6 +236,7 @@ export const MapContainer = () => {
       style={{ width: '100%', height: '100%', position: 'relative' }}
       className={mapStyle === 'dark' ? 'sys-map-dark' : undefined}
     >
+      <style>{ZONE_TOOLTIP_CSS}</style>
       <LayersPanel
         showRoadNetwork={showRoadNetwork}
         onToggleRoadNetwork={() => setShowRoadNetwork((prev) => !prev)}
@@ -162,7 +253,9 @@ export const MapContainer = () => {
         <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_TILE_URL} maxZoom={19} />
         <ZoomControl position="topright" />
         <GeomanControls />
+        <FeatureLayers />
         <FlyToSearchResult />
+        <FlyToScenario />
         <InvalidateOnResize />
         <RoadNetworkLayer visible={showRoadNetwork} onLoadingChange={setRoadNetworkLoading} />
         <SumoNetworkLayer visible={showSumoNetwork} />
