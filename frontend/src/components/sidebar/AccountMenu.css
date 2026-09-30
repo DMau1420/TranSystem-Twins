@@ -1,0 +1,255 @@
+/* AccountMenu.css — SYS_CORE
+   Paleta: cyan #2de3ff / magenta #ff2d6f / amber #ffb020
+   Si tu tokens.js ya define variables globales (--sys-cyan, etc.),
+   reemplazá los valores hex de acá por esas variables. */
+
+.tst-accmenu__overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(4, 8, 12, 0.72);
+	backdrop-filter: blur(2px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	animation: tst-accmenu-fade 0.15s ease-out;
+}
+
+@keyframes tst-accmenu-fade {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+.tst-accmenu__panel {
+	position: relative;
+	width: min(420px, 92vw);
+	max-height: 86vh;
+	overflow-y: auto;
+	background: #0a0e13;
+	border: 1px solid rgba(45, 227, 255, 0.35);
+	box-shadow: 0 0 24px rgba(45, 227, 255, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.4);
+	padding: 20px 22px 24px;
+	font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+	color: #d7e6ea;
+}
+
+/* Esquinas reticulares (mismo lenguaje visual que SysPanelChrome) */
+.tst-accmenu__reticle {
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	pointer-events: none;
+}
+
+.tst-accmenu__reticle--tl {
+	top: -1px;
+	left: -1px;
+	border-top: 2px solid #2de3ff;
+	border-left: 2px solid #2de3ff;
+}
+
+.tst-accmenu__reticle--br {
+	bottom: -1px;
+	right: -1px;
+	border-bottom: 2px solid #2de3ff;
+	border-right: 2px solid #2de3ff;
+}
+
+.tst-accmenu__scanline {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(to bottom,
+			rgba(45, 227, 255, 0.03) 0px,
+			rgba(45, 227, 255, 0.03) 1px,
+			transparent 1px,
+			transparent 3px);
+	mix-blend-mode: overlay;
+}
+
+.tst-accmenu__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+
+.tst-accmenu__tag {
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	color: #2de3ff;
+	text-transform: uppercase;
+}
+
+.tst-accmenu__tag--danger {
+	color: #ff2d6f;
+}
+
+.tst-accmenu__close {
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	color: #d7e6ea;
+	width: 26px;
+	height: 26px;
+	line-height: 1;
+	font-size: 16px;
+	cursor: pointer;
+	transition: border-color 0.15s, color 0.15s;
+}
+
+.tst-accmenu__close:hover {
+	border-color: #ff2d6f;
+	color: #ff2d6f;
+}
+
+.tst-accmenu__error {
+	border: 1px solid rgba(255, 45, 111, 0.4);
+	background: rgba(255, 45, 111, 0.08);
+	color: #ff2d6f;
+	font-size: 12px;
+	padding: 8px 10px;
+	margin-bottom: 14px;
+}
+
+.tst-accmenu__field {
+	margin-bottom: 14px;
+}
+
+.tst-accmenu__label {
+	display: block;
+	font-size: 10.5px;
+	letter-spacing: 0.06em;
+	color: #7fa8b0;
+	text-transform: uppercase;
+	margin-bottom: 6px;
+}
+
+.tst-accmenu__input {
+	width: 100%;
+	background: #050708;
+	border: 1px solid rgba(45, 227, 255, 0.25);
+	color: #d7e6ea;
+	font-family: inherit;
+	font-size: 13px;
+	padding: 9px 10px;
+	outline: none;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tst-accmenu__input:focus {
+	border-color: #2de3ff;
+	box-shadow: 0 0 0 1px rgba(45, 227, 255, 0.25);
+}
+
+.tst-accmenu__input:disabled {
+	color: #6f8890;
+	border-color: rgba(255, 255, 255, 0.08);
+}
+
+.tst-accmenu__input--danger {
+	border-color: rgba(255, 45, 111, 0.4);
+	margin-top: 8px;
+	margin-bottom: 4px;
+}
+
+.tst-accmenu__input--danger:focus {
+	border-color: #ff2d6f;
+	box-shadow: 0 0 0 1px rgba(255, 45, 111, 0.25);
+}
+
+.tst-accmenu__actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 4px;
+}
+
+.tst-accmenu__btn {
+	flex: 1;
+	font-family: inherit;
+	font-size: 11.5px;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	padding: 10px 12px;
+	cursor: pointer;
+	background: transparent;
+	transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.tst-accmenu__btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.tst-accmenu__btn--full {
+	flex: none;
+	width: 100%;
+}
+
+.tst-accmenu__btn--cyan {
+	border: 1px solid #2de3ff;
+	color: #2de3ff;
+}
+
+.tst-accmenu__btn--cyan:hover:not(:disabled) {
+	background: rgba(45, 227, 255, 0.1);
+}
+
+.tst-accmenu__btn--ghost {
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	color: #a9c1c6;
+	margin-top: 10px;
+}
+
+.tst-accmenu__btn--ghost:hover:not(:disabled) {
+	border-color: rgba(255, 255, 255, 0.35);
+	color: #d7e6ea;
+}
+
+.tst-accmenu__btn--danger-outline {
+	border: 1px solid rgba(255, 45, 111, 0.45);
+	color: #ff2d6f;
+	margin-top: 10px;
+}
+
+.tst-accmenu__btn--danger-outline:hover:not(:disabled) {
+	background: rgba(255, 45, 111, 0.1);
+}
+
+.tst-accmenu__btn--danger {
+	border: 1px solid #ff2d6f;
+	background: rgba(255, 45, 111, 0.15);
+	color: #ffe2ea;
+}
+
+.tst-accmenu__btn--danger:hover:not(:disabled) {
+	background: rgba(255, 45, 111, 0.28);
+}
+
+.tst-accmenu__divider {
+	height: 1px;
+	background: rgba(255, 255, 255, 0.08);
+	margin: 18px 0 4px;
+}
+
+.tst-accmenu__delete {
+	display: flex;
+	flex-direction: column;
+}
+
+.tst-accmenu__warning-text {
+	font-size: 12.5px;
+	line-height: 1.6;
+	color: #d7e6ea;
+	border-left: 2px solid #ff2d6f;
+	padding: 4px 0 4px 12px;
+	margin: 10px 0 16px;
+}
+
+.tst-accmenu__warning-text strong {
+	color: #ff2d6f;
+}
