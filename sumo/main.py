@@ -28,28 +28,48 @@ def calcular_bbox(polygon):
 
 def importar_zona(proyecto, herramientas):
     """
+<<<<<<< HEAD
     Descarga la red real de OpenStreetMap y genera la red base de SUMO + su versión en GeoJSON.
 
     Devuelve un diccionario con las rutas de los archivos generados, que en
     producción se guardarían en la tabla PROYECTOS 
+=======
+    Se ejecuta UNA sola vez por proyecto: descarga la red real de OpenStreetMap
+    y genera la red base de SUMO + su versión en GeoJSON.
+
+    Devuelve un diccionario con las rutas de los archivos generados, que en
+    producción se guardarían en la tabla PROYECTOS (no en escenarios).
+>>>>>>> origin/frontend
     """
     netconvertBinary = herramientas["netconvert"]
 
     print(f"Importando zona para el proyecto '{proyecto['nombre']}'...")
 
+<<<<<<< HEAD
 
     carpeta = carpeta_proyecto(proyecto["id"])
 
+=======
+>>>>>>> origin/frontend
     polygon = proyecto["geometria"]["geoJson"]["geometry"]
     bbox = calcular_bbox(polygon)
     print(f"  bbox calculado: {bbox}")
 
+<<<<<<< HEAD
     archivo_osm = descargar_red(bbox, carpeta)
     if archivo_osm is None:
         raise Exception("No se pudo descargar la red desde Overpass tras varios intentos")
 
     archivo_red_base = conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta)
     archivo_geojson = conversor_net_to_geojson(archivo_red_base, carpeta)
+=======
+    archivo_osm = descargar_red(bbox)
+    if archivo_osm is None:
+        raise Exception("No se pudo descargar la red desde Overpass tras varios intentos")
+
+    archivo_red_base = conversor_osm_to_netxml(netconvertBinary, archivo_osm)
+    archivo_geojson = conversor_net_to_geojson(archivo_red_base)
+>>>>>>> origin/frontend
 
     print("  Red base importada correctamente.")
 
@@ -62,9 +82,14 @@ def importar_zona(proyecto, herramientas):
 
 def simular_escenario(escenario, red_base, herramientas):
     """
+<<<<<<< HEAD
     Se ejecuta CADA VEZ que el usuario da clic en "Simular". 
     
     Toma de referencia la red base ya existente del proyecto y
+=======
+    Se ejecuta CADA VEZ que el usuario da clic en "Simular". Parte de la red
+    base ya existente del proyecto (nunca se toca ni se vuelve a descargar) y
+>>>>>>> origin/frontend
     genera los archivos propios de este escenario: red modificada (si aplica),
     rutas de demanda, configuración de SUMO, y finalmente corre la simulación
     y calcula los indicadores.
@@ -75,6 +100,7 @@ def simular_escenario(escenario, red_base, herramientas):
 
     print(f"Simulando escenario '{escenario['nombre']}'...")
 
+<<<<<<< HEAD
     # Un escenario = una configuración + su resultado más reciente.
     carpeta_del_escenario = carpeta_escenario(escenario["proyecto_id"], escenario["id"])
 
@@ -83,17 +109,36 @@ def simular_escenario(escenario, red_base, herramientas):
         netconvertBinary,
         red_base["netxml_base_url"],
         carpeta_del_escenario,
+=======
+    carpeta_escenario = f"storage/proyectos/{escenario['proyecto_id']}/escenarios/{escenario['id']}"
+
+    # Genera (o reutiliza, si no hay modificaciones) la red propia del escenario.
+    # Nunca toca red_base["netxml_base_url"] -- eso es de solo lectura aquí.
+    archivo_red_escenario = construir_red_escenario(
+        netconvertBinary,
+        red_base["netxml_base_url"],
+        carpeta_escenario,
+>>>>>>> origin/frontend
         modificaciones_edges=escenario.get("modificaciones_edges"),
         modificaciones_semaforos=escenario.get("modificaciones_semaforos"),
     )
 
     archivo_rutas = generar_rutas_aleatorias(
+<<<<<<< HEAD
         random_trips, archivo_red_escenario, escenario["demanda_vehicular"], carpeta_del_escenario
     )
     archivo_config = crear_sumo_config(archivo_red_escenario, archivo_rutas, carpeta_del_escenario)
 
     duracion = escenario.get("duracion_segundos", 7200)  # TODO: definir esto en el esquema del escenario
     archivo_resultados = ejecutar_simulacion(sumoBinary, archivo_config, carpeta_del_escenario, duracion_segundos=duracion)
+=======
+        random_trips, archivo_red_escenario, escenario["demanda_vehicular"]
+    )
+    archivo_config = crear_sumo_config(archivo_red_escenario, archivo_rutas)
+
+    duracion = escenario.get("duracion_segundos", 7200)  # TODO: definir esto en el esquema del escenario
+    archivo_resultados = ejecutar_simulacion(sumoBinary, archivo_config, duracion_segundos=duracion)
+>>>>>>> origin/frontend
     indicadores = procesar_resultados(archivo_resultados)
 
     print(f"  Indicadores: {indicadores}")
@@ -107,7 +152,14 @@ def enviar_resultado(escenario_id, indicadores):
         "escenario_id": escenario_id,
         **indicadores,
     }
+<<<<<<< HEAD
     respuesta = requests.post(f"{BASE_URL}/resultado-sumo", json=payload)
+=======
+    base_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+    if not base_url.startswith("http"):
+        base_url = f"http://{base_url}"
+    respuesta = requests.post(f"{base_url}/resultado-sumo", json=payload)
+>>>>>>> origin/frontend
     print(f"Resultado enviado, status: {respuesta.status_code}")
     return respuesta
 
@@ -117,7 +169,11 @@ def main():
         print("Configurando SUMO...")
         herramientas = cargar_herramientas_sumo()
 
+<<<<<<< HEAD
         # --- Datos para pruebas  ---
+=======
+        # --- Datos ficticios para pruebas  ---
+>>>>>>> origin/frontend
         proyecto = {
             "id": 3,
             "nombre": "Interseccion Av. Insurgentes",
@@ -147,12 +203,15 @@ def main():
         }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         base_url = os.getenv("BACKEND_URL", "http://localhost:8000")
         if not base_url.startswith("http"):
             base_url = f"http://{base_url}"
         respuesta = requests.post(f"{base_url}/resultado-sumo", json=payload)
         print(f"Resultado enviado, status: {respuesta.status_code}")
 =======
+=======
+>>>>>>> origin/frontend
         escenario = {
             "id": 12,
             "proyecto_id": proyecto["id"],
@@ -162,7 +221,10 @@ def main():
             "demanda_vehicular": 100,             # TODO: pasar a "vehiculos_por_hora" explícito
             "duracion_segundos": 3600,            # ej: 1 hora de simulación (7:00-8:00)
         }
+<<<<<<< HEAD
 >>>>>>> sumo-traci
+=======
+>>>>>>> origin/frontend
 
         # --- Paso 1: importar la zona SOLO si el proyecto aún no la tiene ---
         if proyecto.get("netxml_base_url") is None:
@@ -179,7 +241,11 @@ def main():
                 "geojson_url": proyecto["geojson_url"],
             }
 
+<<<<<<< HEAD
         # --- Paso 2: simular el escenario ---
+=======
+        # --- Paso 2: simular el escenario (esto sí se repite cada vez) ---
+>>>>>>> origin/frontend
         indicadores = simular_escenario(escenario, red_base, herramientas)
 
         # --- Paso 3: entregar resultados ligados al escenario, no al proyecto ---

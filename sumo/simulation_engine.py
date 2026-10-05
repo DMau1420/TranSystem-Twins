@@ -2,14 +2,23 @@ import traci
 from sumo_tools import verificar_archivo_salida
 
 
+<<<<<<< HEAD
 def ejecutar_simulacion(sumo_binary, config_file, carpeta_salida, archivo_resultados="tripinfo.xml", duracion_segundos=7200):
+=======
+def ejecutar_simulacion(sumo_binary, config_file, archivo_resultados="tripinfo.xml", duracion_segundos=7200):
+>>>>>>> origin/frontend
     """
     Ejecuta la simulación de un escenario ya construido (red + rutas + config
     ya generados por construir_red_escenario y generar_rutas_aleatorias).
     """
+<<<<<<< HEAD
     ruta_resultados = carpeta_salida / archivo_resultados
     ruta_queue = carpeta_salida / "queue.xml"
     
+=======
+    ruta_resultados = generar_ruta_salida(archivo_resultados)
+
+>>>>>>> origin/frontend
     try:
         traci.start([
             sumo_binary,
@@ -18,7 +27,10 @@ def ejecutar_simulacion(sumo_binary, config_file, carpeta_salida, archivo_result
             "--start",
             "--quit-on-end",
             "--no-step-log",
+<<<<<<< HEAD
             "--queue-output", ruta_queue,
+=======
+>>>>>>> origin/frontend
         ])
     except Exception as e:
         print(f"Error al iniciar SUMO: {e}")
@@ -47,3 +59,4 @@ def ejecutar_simulacion(sumo_binary, config_file, carpeta_salida, archivo_result
         except Exception:
             pass
         return False
+
