@@ -6,9 +6,6 @@ from http.server import SimpleHTTPRequestHandler
 from sumo_tools import cargar_herramientas_sumo
 from main import importar_zona, simular_escenario
 
-<<<<<<< HEAD
-# NOTA: este servidor es un sustituto TEMPORAL del backend real de R1
-=======
 # ============================================================================
 # NOTA: este servidor es un sustituto TEMPORAL del backend real de R1, solo
 # para que puedas probar tu pipeline completo sin esperar a que su API esté
@@ -17,7 +14,6 @@ from main import importar_zona, simular_escenario
 # R1 tenga su backend, esto se reemplaza por sus endpoints reales -- el
 # contrato de datos (los mismos campos) no cambia.
 # ============================================================================
->>>>>>> origin/frontend
 
 PROYECTO = {
     "id": 3,

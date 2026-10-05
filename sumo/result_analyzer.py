@@ -1,16 +1,9 @@
 import xml.etree.ElementTree as ET  # Libreria para abrir XML
-<<<<<<< HEAD
 from pathlib import Path
-=======
-
->>>>>>> origin/frontend
 
 def procesar_resultados(archivo):
     """
     Procesa los resultados SOLO después de verificar el archivo.
-<<<<<<< HEAD
-=======
-
     Las claves del diccionario que se regresa deben coincidir EXACTO con
     las que lee el frontend (ver el bloque que arma el modal de
     "Resultados de la simulación"):
@@ -18,7 +11,6 @@ def procesar_resultados(archivo):
         - velocidad_promedio
         - longitud_max_fila
         - vehiculos_atendidos
->>>>>>> origin/frontend
     """
 
     try:
@@ -59,12 +51,8 @@ def procesar_resultados(archivo):
             (sum(velocidades) / len(velocidades)) * 3.6 if velocidades else None
         )
 
-<<<<<<< HEAD
         # queue.xml vive junto a tripinfo.xml en la misma carpeta del
         longitud_max_fila = _calcular_longitud_max_fila(Path(archivo).parent / "queue.xml")
-
-=======
->>>>>>> origin/frontend
         print(f"Vehículos simulados: {len(vehiculos)}")
         print(f"Tiempo promedio de recorrido: {tiempo_promedio_recorrido:.2f} segundos")
         print(f"Espera promedio: {tiempo_promedio_espera:.2f} segundos")
@@ -85,11 +73,7 @@ def procesar_resultados(archivo):
             # parsee ese archivo aparte para sacar el máximo histórico.
             # Por ahora se regresa None explícitamente -- el frontend ya
             # maneja ese caso mostrando "-".
-<<<<<<< HEAD
             "longitud_max_fila": round(longitud_max_fila, 2) if longitud_max_fila is not None else None,
-=======
-            "longitud_max_fila": None,
->>>>>>> origin/frontend
             # Se conserva por si algo más del sistema todavía lo usa,
             # aunque el frontend actual no lo lee.
             "tiempo_promedio_recorrido": round(tiempo_promedio_recorrido, 2),
@@ -100,7 +84,6 @@ def procesar_resultados(archivo):
         return None
     except Exception as e:
         print(f"ERROR inesperado: {e}")
-<<<<<<< HEAD
         return None
 
 
@@ -157,6 +140,3 @@ def _calcular_longitud_max_fila(ruta_queue):
             longitud_maxima = longitud
 
     return longitud_maxima
-=======
-        return None
->>>>>>> origin/frontend
