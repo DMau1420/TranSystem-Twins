@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useMapData } from '../context/MapDataContext';
 import { sysCore } from '../styles/sysCore';
 import SysPanelChrome from './common/SysPanelChrome';
-import { createPoints } from '../api/mapApi';
 import { StepperInput } from './common/StepperInput';
+import SaveScenarioForm from './editor/SaveScenarioForm';
+import { useAutoSave } from '../scenario/useScenarioSaver';
 
 const panelStyle = {
   position: 'absolute',
@@ -181,52 +182,6 @@ const jsonBoxStyle = {
   wordBreak: 'break-word',
 };
 
-const saveBarStyle = {
-  padding: 14,
-  borderBottom: `1px solid ${sysCore.color.border}`,
-};
-
-const saveButtonStyle = (disabled) => ({
-  width: '100%',
-  padding: '10px 0',
-  background: disabled ? 'rgba(255,255,255,0.05)' : 'rgba(45, 227, 255, 0.12)',
-  color: disabled ? sysCore.color.inkMuted : sysCore.color.cyan,
-  border: `1px solid ${disabled ? sysCore.color.border : sysCore.color.borderStrong}`,
-  borderRadius: 4,
-  cursor: disabled ? 'default' : 'pointer',
-  fontFamily: sysCore.font.mono,
-  fontSize: 11.5,
-  fontWeight: 600,
-  letterSpacing: '0.05em',
-  textTransform: 'uppercase',
-});
-
-const saveStatusStyle = (kind) => ({
-  marginTop: 8,
-  fontSize: 11,
-  color: kind === 'error' ? sysCore.color.magenta : sysCore.color.cyan,
-  background: kind === 'error' ? 'rgba(255, 45, 111, 0.08)' : 'rgba(45, 227, 255, 0.08)',
-  border: `1px solid ${kind === 'error' ? 'rgba(255, 45, 111, 0.3)' : 'rgba(45, 227, 255, 0.3)'}`,
-  borderRadius: 4,
-  padding: '6px 10px',
-  fontFamily: sysCore.font.mono,
-});
-
-// Convierte los puntos del contexto a la forma que espera PointsPayload.
-// ⚠️ Ajustar campos cuando se confirme el schema real del backend.
-function buildPointsPayload(points) {
-  return {
-    points: points.map((p) => ({
-      id: p.id,
-      lat: p.lat,
-      lng: p.lng,
-      geoJson: p.geoJson,
-      street: p.street ?? null,
-      displayName: p.displayName ?? null,
-    })),
-  };
-}
-
 const ListView = ({ points, routes, zones, removeFeature, updateZone }) => (
   <>
     <div style={sectionTitleStyle}>// PUNTOS · {points.length}</div>
@@ -312,15 +267,16 @@ const JsonView = ({ points, routes, zones }) => {
 export const MapDataPanel = () => {
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState('list');
-  const [saveState, setSaveState] = useState('idle'); // idle | saving | success | error
-  const [saveMessage, setSaveMessage] = useState('');
   const { points, routes, zones, removeFeature, updateZone } = useMapData();
   const total = points.length + routes.length + zones.length;
+
+  // Crea el proyecto/escenario al marcar algo y luego lo mantiene actualizado
+  useAutoSave({ points, routes, zones });
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       const tag = document.activeElement?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
       if (e.key.toLowerCase() === KEY_SHORTCUT) {
         setOpen((prev) => !prev);
@@ -333,26 +289,6 @@ export const MapDataPanel = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const handleSave = async () => {
-    if (points.length === 0) return;
-
-    setSaveState('saving');
-    setSaveMessage('');
-
-    try {
-      const payload = buildPointsPayload(points);
-      await createPoints(payload);
-      setSaveState('success');
-      setSaveMessage(`Se guardaron ${points.length} punto(s) en el backend.`);
-    } catch (err) {
-      console.error('Error guardando puntos:', err);
-      setSaveState('error');
-      setSaveMessage(
-        `No se pudo guardar: ${err.message}. Revisá que el backend esté corriendo y que el formato coincida.`
-      );
-    }
-  };
 
   return (
     <>
@@ -372,18 +308,7 @@ export const MapDataPanel = () => {
             </button>
           </div>
 
-          <div style={saveBarStyle}>
-            <button
-              style={saveButtonStyle(points.length === 0 || saveState === 'saving')}
-              onClick={handleSave}
-              disabled={points.length === 0 || saveState === 'saving'}
-            >
-              {saveState === 'saving' ? 'GUARDANDO…' : `GUARDAR ${points.length} PUNTO(S)`}
-            </button>
-            {saveMessage && (
-              <div style={saveStatusStyle(saveState === 'error' ? 'error' : 'ok')}>{saveMessage}</div>
-            )}
-          </div>
+          <SaveScenarioForm features={{ points, routes, zones }} />
 
           <div style={tabsBarStyle}>
             <button style={tabButtonStyle(tab === 'list')} onClick={() => setTab('list')}>Lista</button>
