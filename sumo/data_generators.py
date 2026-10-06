@@ -1,10 +1,15 @@
+
+import random
+import json
+import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import time
 import requests
 import sumolib
-import json
+
+# Temporalmente desactivada hasta que ya  nos conectemos bien los 3 modulos
 
 def cargar_escenario():
 
