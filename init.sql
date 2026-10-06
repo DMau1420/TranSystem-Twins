@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 -- Tabla: USUARIOS
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
-    id UUID PRIMARY KEY, -- Generado como UUIDv7 desde la aplicación / conector
+    id UUID PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     apodo VARCHAR(255),
     correo VARCHAR(255) NOT NULL UNIQUE,
@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS proyectos (
     descripcion TEXT,
     usuario_id UUID NOT NULL,
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    geometria JSONB,
+    osm_file_url VARCHAR(1024),
+    netxml_base_url VARCHAR(1024),
+    geojson_url VARCHAR(1024),
     CONSTRAINT fk_proyectos_usuario
         FOREIGN KEY (usuario_id) 
         REFERENCES usuarios(id) 
@@ -52,6 +56,11 @@ CREATE TABLE IF NOT EXISTS escenarios (
     tipo_demanda VARCHAR(100),
     interseccion_ref VARCHAR(255),
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    modificaciones_edges JSONB NOT NULL DEFAULT '[]'::jsonb,
+    modificaciones_semaforos JSONB NOT NULL DEFAULT '[]'::jsonb,
+    demanda_vehicular INT NOT NULL DEFAULT 100,
+    duracion_segundos INT NOT NULL DEFAULT 3600,
+    resultado JSONB,
     CONSTRAINT fk_escenarios_proyecto
         FOREIGN KEY (proyecto_id) 
         REFERENCES proyectos(id) 
@@ -63,78 +72,6 @@ COMMENT ON COLUMN escenarios.zona_geom IS 'Polígono o geometría espacial de la
 CREATE INDEX idx_escenarios_proyecto_id ON escenarios(proyecto_id);
 CREATE INDEX idx_escenarios_zona_geom ON escenarios USING GIST (zona_geom);
 CREATE INDEX idx_escenarios_interseccion_ref ON escenarios(interseccion_ref);
-
--- ------------------------------------------------------------------------------
--- Tabla: CONFIGURACION_INFRAESTRUCTURA
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS configuracion_infraestructura (
-    id SERIAL PRIMARY KEY,
-    escenario_id INT NOT NULL,
-    edge_id VARCHAR(100) NOT NULL,
-    carriles INT NOT NULL DEFAULT 1,
-    velocidad_max DOUBLE PRECISION,
-    tiempos_semaforo JSONB,
-    CONSTRAINT fk_config_infra_escenario
-        FOREIGN KEY (escenario_id) 
-        REFERENCES escenarios(id) 
-        ON DELETE CASCADE
-);
-
-COMMENT ON TABLE configuracion_infraestructura IS 'Ajustes de infraestructura vial, carriles y semaforización para SUMO';
-CREATE INDEX idx_config_infra_escenario_id ON configuracion_infraestructura(escenario_id);
-
--- ------------------------------------------------------------------------------
--- Tabla: DEMANDA_SINTETICA
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS demanda_sintetica (
-    id SERIAL PRIMARY KEY,
-    escenario_id INT NOT NULL,
-    direccion VARCHAR(100),
-    vehiculos_por_hora DOUBLE PRECISION,
-    porcentaje_carga DOUBLE PRECISION,
-    horario VARCHAR(100),
-    CONSTRAINT fk_demanda_sintetica_escenario
-        FOREIGN KEY (escenario_id) 
-        REFERENCES escenarios(id) 
-        ON DELETE CASCADE
-);
-
-COMMENT ON TABLE demanda_sintetica IS 'Patrones y volúmenes de demanda sintética asignados a un escenario';
-CREATE INDEX idx_demanda_sintetica_escenario_id ON demanda_sintetica(escenario_id);
-
--- ------------------------------------------------------------------------------
--- Tabla: AFOROS_TIEMPO_REAL
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS aforos_tiempo_real (
-    id SERIAL PRIMARY KEY,
-    interseccion_ref VARCHAR(255) NOT NULL,
-    fecha_hora TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    vehiculos_detectados INT NOT NULL DEFAULT 0,
-    fuente VARCHAR(100)
-);
-
-COMMENT ON TABLE aforos_tiempo_real IS 'Datos de conteo vehicular en tiempo real capturados por sensores/MQTT';
-CREATE INDEX idx_aforos_interseccion_ref ON aforos_tiempo_real(interseccion_ref);
-CREATE INDEX idx_aforos_fecha_hora ON aforos_tiempo_real(fecha_hora);
-
--- ------------------------------------------------------------------------------
--- Tabla Intermedia: ESCENARIO_AFOROS (Relación N:M entre Escenarios y Aforos)
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS escenario_aforos (
-    escenario_id INT NOT NULL,
-    aforo_id INT NOT NULL,
-    PRIMARY KEY (escenario_id, aforo_id),
-    CONSTRAINT fk_ea_escenario
-        FOREIGN KEY (escenario_id) 
-        REFERENCES escenarios(id) 
-        ON DELETE CASCADE,
-    CONSTRAINT fk_ea_aforo
-        FOREIGN KEY (aforo_id) 
-        REFERENCES aforos_tiempo_real(id) 
-        ON DELETE CASCADE
-);
-
-COMMENT ON TABLE escenario_aforos IS 'Asociación muchos a muchos entre escenarios y mediciones de aforo utilizadas';
 
 -- ------------------------------------------------------------------------------
 -- Tabla: RESULTADOS

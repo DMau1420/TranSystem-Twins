@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func, text
 from geoalchemy2 import Geometry
-
+from sqlalchemy.dialects.postgresql import JSONB
 from core.database import Base
 
 
@@ -24,8 +24,11 @@ class Escenarios(Base):
         server_default=func.now(),
         nullable=False
     )
-
-
+    modificaciones_edges = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    modificaciones_semaforos = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    demanda_vehicular = Column(Integer, nullable=False, server_default="100")
+    duracion_segundos = Column(Integer, nullable=False, server_default="3600")
+    resultado = Column(JSONB, nullable=True)
 '''
 CREATE TABLE IF NOT EXISTS escenarios (
     id SERIAL PRIMARY KEY,

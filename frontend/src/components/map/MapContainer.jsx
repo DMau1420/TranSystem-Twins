@@ -26,6 +26,9 @@ import { reverseGeocode } from '../../utils/geocoding';
 import { sysCore } from '../../styles/sysCore';
 import RoadNetworkLayer from './RoadNetworkLayer';
 import SumoNetworkLayer from './SumoNetworkLayer';
+import { useProyecto } from '../../context/ProyectoContext';
+import EdicionPanel from './EdicionPanel';
+import SimularBoton from './SimularBoton';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -228,7 +231,8 @@ const ZONE_TOOLTIP_CSS = `
 export const MapContainer = () => {
   const [showRoadNetwork, setShowRoadNetwork] = useState(false);
   const [roadNetworkLoading, setRoadNetworkLoading] = useState(false);
-  const [showSumoNetwork, setShowSumoNetwork] = useState(false);
+  const [seleccion, setSeleccion] = useState(null);
+  const { capaSumoVisible, setCapaSumoVisible } = useProyecto();
   const { mapStyle } = useMapTheme(); // 'light' | 'dark' — controlado desde el Sidebar
 
   return (
@@ -241,8 +245,8 @@ export const MapContainer = () => {
         showRoadNetwork={showRoadNetwork}
         onToggleRoadNetwork={() => setShowRoadNetwork((prev) => !prev)}
         roadNetworkLoading={roadNetworkLoading}
-        showSumoNetwork={showSumoNetwork}
-        onToggleSumoNetwork={() => setShowSumoNetwork((prev) => !prev)}
+        showSumoNetwork={capaSumoVisible}
+        onToggleSumoNetwork={() => setCapaSumoVisible((prev) => !prev)}
       />
       <LeafletMap
         center={DEFAULT_CENTER}
@@ -258,8 +262,14 @@ export const MapContainer = () => {
         <FlyToScenario />
         <InvalidateOnResize />
         <RoadNetworkLayer visible={showRoadNetwork} onLoadingChange={setRoadNetworkLoading} />
-        <SumoNetworkLayer visible={showSumoNetwork} />
+        <SumoNetworkLayer visible={capaSumoVisible} onSelect={setSeleccion} />
       </LeafletMap>
+
+      {capaSumoVisible && <SimularBoton />}
+
+      {capaSumoVisible && seleccion && (
+        <EdicionPanel seleccion={seleccion} onClose={() => setSeleccion(null)} />
+      )}
     </div>
   );
 };

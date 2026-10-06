@@ -1,9 +1,25 @@
 import json
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
-import httpx
+import websockets
+
+SUMO_WS_URL = "ws://sumo:8000"
+SUMO_WS_URL_LOCAL = "ws://localhost:8000"
 
 class SumoService:
+    @staticmethod
+    async def _send_ws_request(payload: dict):
+        try:
+            async with websockets.connect(SUMO_WS_URL) as ws:
+                await ws.send(json.dumps(payload))
+                response = await ws.recv()
+                return json.loads(response)
+        except Exception:
+            async with websockets.connect(SUMO_WS_URL_LOCAL) as ws:
+                await ws.send(json.dumps(payload))
+                response = await ws.recv()
+                return json.loads(response)
+
     @staticmethod
     async def simular(websocket: WebSocket):
         await websocket.accept()
@@ -16,37 +32,70 @@ class SumoService:
                     await websocket.send_json({"error": "Invalid JSON format"})
                     continue
 
-                # Notificar al cliente que inició la simulación
                 await websocket.send_json({"status": "iniciando", "progress": 0})
-
+                
                 try:
-                    # Enviar a SUMO usando el servidor temporal interno de la red docker (asume que sumo está en http://sumo:8000)
-                    # o localhost si se corre todo fuera de docker.
-                    async with httpx.AsyncClient(timeout=120.0) as client:
-                        await websocket.send_json({"status": "simulando", "progress": 50})
-
-                        # Intentar conectarse al servicio sumo (nombre del contenedor) o localhost fallback
-                        try:
-                            sumo_url = "http://sumo:8000/simular"
-                            response = await client.post(sumo_url, json=payload)
-                        except httpx.RequestError:
-                            sumo_url = "http://localhost:8000/simular" # Fallback local
-                            response = await client.post(sumo_url, json=payload)
-
-                        response.raise_for_status()
-                        resultado = response.json()
-
+                    await websocket.send_json({"status": "simulando", "progress": 50})
+                    
+                    req_payload = {"action": "simular", "payload": payload}
+                    try:
+                        async with websockets.connect(SUMO_WS_URL) as ws:
+                            await ws.send(json.dumps(req_payload))
+                            res = await ws.recv()
+                            resultado_data = json.loads(res)
+                    except Exception:
+                        async with websockets.connect(SUMO_WS_URL_LOCAL) as ws:
+                            await ws.send(json.dumps(req_payload))
+                            res = await ws.recv()
+                            resultado_data = json.loads(res)
+                    
+                    if "error" in resultado_data:
+                        await websocket.send_json({"status": "error", "detail": resultado_data["error"]})
+                    else:
+                        resultado = resultado_data.get("data", {})
                         await websocket.send_json({"status": "completado", "progress": 100, "resultado": resultado})
-
-                        # Mandar resultado al endpoint de backend para mantener consistencia con el requerimiento
+                        
+                        # Guardar el resultado (esto es de la implementacion original, podemos hacer request via httpx aqui
+                        # porque back->back es HTTP normal)
+                        import httpx
                         try:
-                            # Puede ser a /resultado-sumo
-                            backend_url = "http://localhost:8000/resultado-sumo"
-                            await client.post(backend_url, json=resultado)
+                            async with httpx.AsyncClient() as client:
+                                await client.post("http://localhost:8000/resultado-sumo", json=resultado)
                         except httpx.RequestError:
-                            pass # No fallar si este endpoint no responde
+                            pass
                 except Exception as e:
                     await websocket.send_json({"status": "error", "detail": f"Error al simular en SUMO: {str(e)}"})
 
         except WebSocketDisconnect:
-            pass # Cliente desconectado
+            pass
+
+    @staticmethod
+    async def proxy_get_red():
+        return await SumoService._send_ws_request({"action": "get_red"})
+            
+    @staticmethod
+    async def proxy_patch_infraestructura(edge_id: str, datos: dict):
+        return await SumoService._send_ws_request({
+            "action": "patch_infraestructura",
+            "edge_id": edge_id,
+            "datos": datos
+        })
+            
+    @staticmethod
+    async def proxy_patch_semaforo(tls_id: str, datos: dict):
+        return await SumoService._send_ws_request({
+            "action": "patch_semaforo",
+            "tls_id": tls_id,
+            "datos": datos
+        })
+            
+    @staticmethod
+    async def proxy_get_resultado():
+        return await SumoService._send_ws_request({"action": "get_resultado"})
+            
+    @staticmethod
+    async def proxy_post_simular(payload: dict):
+        return await SumoService._send_ws_request({
+            "action": "simular",
+            "payload": payload
+        })

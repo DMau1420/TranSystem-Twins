@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from core.database import Base
 
@@ -20,7 +20,10 @@ class Proyectos(Base):
         server_default=func.now(),
         nullable=False
     )
-    
+    geometria = Column(JSONB, nullable=True)
+    osm_file_url = Column(String(1024), nullable=True)
+    netxml_base_url = Column(String(1024), nullable=True)
+    geojson_url = Column(String(1024), nullable=True)
 '''
 CREATE TABLE IF NOT EXISTS proyectos (
     id SERIAL PRIMARY KEY,

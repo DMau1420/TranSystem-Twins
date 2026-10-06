@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from geoalchemy2.elements import WKBElement
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 
 
 class CreateEscenario(BaseModel):
@@ -12,6 +12,8 @@ class CreateEscenario(BaseModel):
     osm_file_url: str | None = None
     tipo_demanda: str | None = None
     interseccion_ref: str | None = None
+    demanda_vehicular: int = 100
+    duracion_segundos: int = 3600
 
 
 class UpdateEscenario(BaseModel):
@@ -23,6 +25,21 @@ class UpdateEscenario(BaseModel):
     interseccion_ref: str | None = None
 
 
+class ModificarEdge(BaseModel):
+    carriles: int = Field(ge=1, le=10)
+    velocidad_max: float = Field(ge=5, le=120)
+
+
+class FaseSemaforo(BaseModel):
+    indice: int
+    duracion: int | None = Field(default=None, ge=1, le=300)
+    estado: str | None = None
+
+
+class ModificarSemaforo(BaseModel):
+    fases: list[FaseSemaforo]
+
+
 class EscenarioResponse(BaseModel):
     id: int
     proyecto_id: int
@@ -31,6 +48,11 @@ class EscenarioResponse(BaseModel):
     osm_file_url: str | None = None
     tipo_demanda: str | None = None
     interseccion_ref: str | None = None
+    demanda_vehicular: int = 100
+    duracion_segundos: int = 3600
+    modificaciones_edges: list[dict] = []
+    modificaciones_semaforos: list[dict] = []
+    resultado: dict | None = None
     fecha_creacion: datetime
 
     model_config = ConfigDict(from_attributes=True)

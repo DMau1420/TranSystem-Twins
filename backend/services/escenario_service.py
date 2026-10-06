@@ -42,6 +42,8 @@ class EscenarioService:
             osm_file_url=escenario_in.osm_file_url,
             tipo_demanda=escenario_in.tipo_demanda,
             interseccion_ref=escenario_in.interseccion_ref,
+            demanda_vehicular=escenario_in.demanda_vehicular,
+            duracion_segundos=escenario_in.duracion_segundos,
         )
         db.add(nuevo_escenario)
         db.commit()
@@ -130,3 +132,39 @@ class EscenarioService:
 
         db.delete(escenario)
         db.commit()
+
+    @staticmethod
+    def modificar_edge(db: Session, escenario_id: int, edge_id: str, data, usuario_id: UUID):
+        escenario = (
+            db.query(Escenarios)
+            .join(Proyectos, Escenarios.proyecto_id == Proyectos.id)
+            .filter(Escenarios.id == escenario_id, Proyectos.usuario_id == usuario_id)
+            .first()
+        )
+        if not escenario:
+            raise EscenarioNotFoundException()
+            
+        mods = [m for m in escenario.modificaciones_edges if m["edge_id"] != edge_id]
+        mods.append({"edge_id": edge_id, **data.model_dump()})
+        escenario.modificaciones_edges = mods
+        db.commit()
+        db.refresh(escenario)
+        return escenario
+
+    @staticmethod
+    def modificar_semaforo(db: Session, escenario_id: int, tls_id: str, data, usuario_id: UUID):
+        escenario = (
+            db.query(Escenarios)
+            .join(Proyectos, Escenarios.proyecto_id == Proyectos.id)
+            .filter(Escenarios.id == escenario_id, Proyectos.usuario_id == usuario_id)
+            .first()
+        )
+        if not escenario:
+            raise EscenarioNotFoundException()
+            
+        mods = [m for m in escenario.modificaciones_semaforos if m["tls_id"] != tls_id]
+        mods.append({"tls_id": tls_id, "fases": [f.model_dump() for f in data.fases]})
+        escenario.modificaciones_semaforos = mods
+        db.commit()
+        db.refresh(escenario)
+        return escenario

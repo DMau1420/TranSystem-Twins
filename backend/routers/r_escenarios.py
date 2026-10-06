@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.md_user import User
-from schemas.sc_escenarios import CreateEscenario, EscenarioResponse, UpdateEscenario
+from schemas.sc_escenarios import CreateEscenario, EscenarioResponse, UpdateEscenario, ModificarEdge, ModificarSemaforo
 from services.auth_service import AuthService
 from services.escenario_service import EscenarioService
 
@@ -96,3 +96,13 @@ def eliminar_escenario(
         escenario_id=escenario_id,
         usuario_id=current_user.id,
     )
+
+@router.patch("/{escenario_id}/infraestructura/{edge_id}", response_model=EscenarioResponse)
+def patch_edge(escenario_id: int, edge_id: str, data: ModificarEdge, db: Session = Depends(get_db),
+        u: User = Depends(AuthService.obtener_usuario_actual)):
+    return EscenarioService.modificar_edge(db, escenario_id, edge_id, data, u.id)
+
+@router.patch("/{escenario_id}/semaforo/{tls_id}", response_model=EscenarioResponse)
+def patch_semaforo(escenario_id: int, tls_id: str, data: ModificarSemaforo, db: Session = Depends(get_db),
+        u: User = Depends(AuthService.obtener_usuario_actual)):
+    return EscenarioService.modificar_semaforo(db, escenario_id, tls_id, data, u.id)
