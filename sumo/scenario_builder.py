@@ -156,10 +156,7 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
 
     ids_base_encontrados = set()
     total_segmentos_modificados = 0
-<<<<<<< HEAD
     total_lanes_huerfanos_eliminados = 0
-=======
->>>>>>> origin/frontend
 
     for edge_el in root.findall("edge"):
         edge_id = edge_el.get("id")
@@ -177,7 +174,6 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
         total_segmentos_modificados += 1
 
         if cambio.get("carriles") is not None:
-<<<<<<< HEAD
             nuevo_num_lanes = int(cambio["carriles"])
             edge_el.set("numLanes", str(nuevo_num_lanes))
 
@@ -195,9 +191,6 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
                 if indice_lane >= nuevo_num_lanes:
                     edge_el.remove(lane_el)
                     total_lanes_huerfanos_eliminados += 1
-=======
-            edge_el.set("numLanes", str(int(cambio["carriles"])))
->>>>>>> origin/frontend
 
         if cambio.get("velocidad_max") is not None:
             # Los archivos planos de SUMO guardan velocidad en m/s;
@@ -212,14 +205,11 @@ def _aplicar_modificaciones_edges(archivo_edg, modificaciones_edges):
         f"Carriles/velocidad aplicados: {len(ids_base_encontrados)}/{len(modificaciones_edges)} "
         f"vías encontradas ({total_segmentos_modificados} segmentos internos modificados en total)."
     )
-<<<<<<< HEAD
     if total_lanes_huerfanos_eliminados:
         print(
             f" Se removieron {total_lanes_huerfanos_eliminados} <lane> huérfano(s) "
             f"que quedaron apuntando a carriles eliminados."
         )
-=======
->>>>>>> origin/frontend
     if ids_faltantes:
         print(f" No se encontraron estos edge_id en la red: {ids_faltantes}")
 

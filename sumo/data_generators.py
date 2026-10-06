@@ -1,10 +1,15 @@
+
+import random
+import json
+import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import time
 import requests
 import sumolib
-import json
+
+# Temporalmente desactivada hasta que ya  nos conectemos bien los 3 modulos
 
 def cargar_escenario():
 
@@ -160,11 +165,7 @@ def conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta_salida, archi
         print(e.stderr, file=sys.stderr)
         return None
 
-<<<<<<< HEAD
 def conversor_net_to_geojson(ruta_net_xml, carpeta_salida, nombre_archivo="red_base.geojson"):
-=======
-def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
->>>>>>> origin/frontend
     """Convierte una red de SUMO a GeoJSON con coordenadas geográficas REALES"""
 
     print(f" Leyendo red desde: {ruta_net_xml}")
@@ -372,11 +373,7 @@ def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
 
     geojson_data = {"type": "FeatureCollection", "features": features}
 
-<<<<<<< HEAD
     ruta_geojson = carpeta_salida / nombre_archivo
-=======
-    ruta_geojson = generar_ruta_salida(nombre_archivo)
->>>>>>> origin/frontend
     with ruta_geojson.open("w", encoding="utf-8") as f:
         json.dump(geojson_data, f, ensure_ascii=False, indent=4)
 
@@ -384,13 +381,8 @@ def conversor_net_to_geojson(ruta_net_xml, nombre_archivo="map_net.geojson"):
 
     return ruta_geojson
 
-<<<<<<< HEAD
 def generar_rutas_aleatorias(random_trips, archivo_red_vial, demanda_vehicular, carpeta_salida, nombre_archivo="demanda.rou.xml"):
     ruta_salida = carpeta_salida / nombre_archivo
-=======
-def generar_rutas_aleatorias(random_trips,archivo_red_vial,demanda_vehicular, nombre_archivo= "cross.rou.xml"):
-    ruta_salida = generar_ruta_salida(nombre_archivo)
->>>>>>> origin/frontend
 
     begin_time = 0
     tiempo_simulacion = 3600
