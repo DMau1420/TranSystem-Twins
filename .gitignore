@@ -5,6 +5,8 @@ node_modules/
 dist/
 
 __pycache__/
+.ruff_cache/
+.venv/
 
 .vscode/
 

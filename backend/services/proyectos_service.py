@@ -13,6 +13,7 @@ class ProyectoService:
             nombre=proyecto_in.nombre,
             descripcion=proyecto_in.descripcion,
             usuario_id=usuario_id,
+            geometria=proyecto_in.geometria,
         )
         db.add(nuevo_proyecto)
         db.commit()
@@ -50,6 +51,8 @@ class ProyectoService:
             proyecto.nombre = proyecto_in.nombre
         if proyecto_in.descripcion is not None:
             proyecto.descripcion = proyecto_in.descripcion
+        if proyecto_in.geometria is not None:
+            proyecto.geometria = proyecto_in.geometria
 
         db.commit()
         db.refresh(proyecto)

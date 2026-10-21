@@ -91,6 +91,7 @@ dependencies = [
     { name = "ruff" },
     { name = "sqlalchemy" },
     { name = "uuid6" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -106,6 +107,7 @@ requires-dist = [
     { name = "ruff", specifier = ">=0.16.4" },
     { name = "sqlalchemy", specifier = ">=2.0.52" },
     { name = "uuid6", specifier = ">=2025.0.1" },
+    { name = "websockets", specifier = ">=12.0" },
 ]
 
 [[package]]

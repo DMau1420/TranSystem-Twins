@@ -14,9 +14,12 @@ import {
 import { sysCore } from '../../styles/sysCore';
 import './ProjectsPanel.css';
 
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = RAW_API_BASE.endsWith('/') ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
+
 // false = todo se lee/guarda del almacenamiento local del navegador (sin llamadas al backend).
 // Ponlo en true cuando el backend esté listo: intenta la API y cae al modo local si falla.
-const USE_API = false;
+const USE_API = true;
 
 // Mismo patrón de confirmación que AccountMenu (DELETE_CONFIRM_WORD) para
 // borrados de un solo elemento, sin cascada. El proyecto, al borrar en
@@ -167,12 +170,19 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     try {
       if (USE_API) {
         try {
-          const res = await fetch('/api/projects', {
+          const res = await fetch(`${API_BASE}/proyectos/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          if (!res.ok) throw new Error(`GET /api/projects -> ${res.status}`);
+          if (!res.ok) throw new Error(`GET /proyectos/ -> ${res.status}`);
           const data = await res.json();
-          setProjects(Array.isArray(data) ? data : data.projects ?? []);
+          const mapped = (Array.isArray(data) ? data : data.projects ?? []).map(p => ({
+            ...p,
+            name: p.nombre,
+            description: p.descripcion,
+            updatedAt: p.fecha_creacion,
+            scenariosCount: 0 // Fetch scenarios to count? We will see, or maybe leave it for later if backend doesn't provide it
+          }));
+          setProjects(mapped);
           setLocalMode(false);
           return;
         } catch {
@@ -195,12 +205,17 @@ export default function ProjectsPanel({ isOpen, onClose }) {
       try {
         if (USE_API) {
           try {
-            const res = await fetch(`/api/projects/${projectId}/scenarios`, {
+            const res = await fetch(`${API_BASE}/escenarios/?proyecto_id=${projectId}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) throw new Error(`GET /api/projects/${projectId}/scenarios -> ${res.status}`);
+            if (!res.ok) throw new Error(`GET /escenarios/ -> ${res.status}`);
             const data = await res.json();
-            setScenarios(Array.isArray(data) ? data : data.scenarios ?? []);
+            const mapped = (Array.isArray(data) ? data : data.scenarios ?? []).map(s => ({
+              ...s,
+              name: s.nombre,
+              updatedAt: s.fecha_creacion,
+            }));
+            setScenarios(mapped);
             return;
           } catch {
             /* backend no disponible: cae al modo local */
@@ -262,8 +277,16 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     if (!name) return;
 
     try {
-      // TODO: reemplazar por POST /api/projects cuando esté lista la integración con el backend.
-      await saveProject({ name, description: newProject.description.trim() });
+      if (USE_API) {
+        const res = await fetch(`${API_BASE}/proyectos/crear`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ nombre: name, descripcion: newProject.description.trim() })
+        });
+        if (!res.ok) throw new Error('Error al crear proyecto');
+      } else {
+        await saveProject({ name, description: newProject.description.trim() });
+      }
       setNewProject({ name: '', description: '' });
       setCreating(false);
       await fetchProjects();
@@ -284,9 +307,17 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     if (!name || name === activeProject.name) return;
 
     try {
-      // TODO: PATCH /api/projects/:id cuando esté lista la integración con el backend.
-      const { scenariosCount, ...base } = activeProject;
-      await saveProject({ ...base, name, autoNamed: false }); // ya no se autoactualiza el nombre
+      if (USE_API) {
+        const res = await fetch(`${API_BASE}/proyectos/modificar/${activeProject.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ nombre: name })
+        });
+        if (!res.ok) throw new Error('Error al renombrar proyecto');
+      } else {
+        const { scenariosCount, ...base } = activeProject;
+        await saveProject({ ...base, name, autoNamed: false });
+      }
       setActiveProject((p) => ({ ...p, name }));
       setProjects((prev) => prev.map((p) => (p.id === activeProject.id ? { ...p, name } : p)));
     } catch {
@@ -306,8 +337,16 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     if (!name || name === scenario.name) return;
 
     try {
-      // TODO: PATCH /api/projects/:id/scenarios/:id cuando esté lista la integración con el backend.
-      await renameScenario(scenario.id, name);
+      if (USE_API) {
+        const res = await fetch(`${API_BASE}/escenarios/modificar/${scenario.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ nombre: name })
+        });
+        if (!res.ok) throw new Error('Error al renombrar escenario');
+      } else {
+        await renameScenario(scenario.id, name);
+      }
       setScenarios((prev) => prev.map((s) => (s.id === scenario.id ? { ...s, name } : s)));
     } catch {
       setError('No se pudo renombrar el escenario.');
@@ -329,8 +368,11 @@ export default function ProjectsPanel({ isOpen, onClose }) {
   async function handleDuplicateScenario(scenario) {
     setError(null);
     try {
-      // TODO: POST /api/scenarios/:id/duplicate cuando esté lista la integración con el backend.
-      await duplicateScenario(scenario.id);
+      if (USE_API) {
+        throw new Error('Duplicar escenario aún no implementado en backend');
+      } else {
+        await duplicateScenario(scenario.id);
+      }
       setScenarios(await listScenarios({ projectId: activeProject.id }));
     } catch {
       setError('No se pudo duplicar el escenario.');
@@ -347,13 +389,28 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     setDeleting(true);
     setError(null);
     try {
-      // TODO: DELETE /api/projects/:id o /api/scenarios/:id cuando esté lista la integración con el backend.
       if (confirmDelete.kind === 'project') {
-        await deleteProject(confirmDelete.id);
+        if (USE_API) {
+          const res = await fetch(`${API_BASE}/proyectos/${confirmDelete.id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error('Error al eliminar proyecto');
+        } else {
+          await deleteProject(confirmDelete.id);
+        }
         setConfirmDelete(null);
         handleBack();
       } else {
-        await deleteScenario(confirmDelete.id);
+        if (USE_API) {
+          const res = await fetch(`${API_BASE}/escenarios/${confirmDelete.id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error('Error al eliminar escenario');
+        } else {
+          await deleteScenario(confirmDelete.id);
+        }
         setScenarios((prev) => prev.filter((s) => s.id !== confirmDelete.id));
         setConfirmDelete(null);
       }

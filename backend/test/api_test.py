@@ -266,6 +266,236 @@ def test_eliminar_proyecto():
 
 
 # ====================================
+# Tests para Escenarios
+# ====================================
+
+ESCENARIO_TEST = {
+    "nombre": "Escenario Horario Pico Matutino",
+    "zona_geom": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-99.1332, 19.4326],
+                [-99.1400, 19.4400],
+                [-99.1300, 19.4450],
+                [-99.1332, 19.4326],
+            ]
+        ],
+    },
+    "osm_file_url": "https://example.com/osm/insurgentes.osm",
+    "tipo_demanda": "Vehicular Intensa",
+    "interseccion_ref": "Insurgentes y Reforma",
+}
+
+created_escenario_id = None
+
+
+def test_crear_escenario():
+    global created_escenario_id
+    headers = get_auth_headers()
+    payload = {
+        **ESCENARIO_TEST,
+        "proyecto_id": created_proyecto_id,
+    }
+    response = client.post("/escenarios/crear", json=payload, headers=headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert "id" in data
+    assert data["proyecto_id"] == created_proyecto_id
+    assert data["nombre"] == ESCENARIO_TEST["nombre"]
+    assert data["osm_file_url"] == ESCENARIO_TEST["osm_file_url"]
+    assert data["tipo_demanda"] == ESCENARIO_TEST["tipo_demanda"]
+    assert data["interseccion_ref"] == ESCENARIO_TEST["interseccion_ref"]
+    assert data["zona_geom"] is not None
+    assert "fecha_creacion" in data
+    created_escenario_id = data["id"]
+
+
+def test_crear_escenario_proyecto_invalido():
+    headers = get_auth_headers()
+    payload = {
+        **ESCENARIO_TEST,
+        "proyecto_id": 999999,
+    }
+    response = client.post("/escenarios/crear", json=payload, headers=headers)
+    assert response.status_code == 404
+
+
+def test_obtener_todos_los_escenarios():
+    headers = get_auth_headers()
+    response = client.get("/escenarios/", headers=headers)
+    assert response.status_code == 200
+    escenarios = response.json()
+    assert isinstance(escenarios, list)
+    assert len(escenarios) >= 1
+    ids = [e["id"] for e in escenarios]
+    assert created_escenario_id in ids
+
+
+def test_obtener_escenarios_filtrados_por_proyecto():
+    headers = get_auth_headers()
+    response = client.get(
+        f"/escenarios/?proyecto_id={created_proyecto_id}", headers=headers
+    )
+    assert response.status_code == 200
+    escenarios = response.json()
+    assert isinstance(escenarios, list)
+    ids = [e["id"] for e in escenarios]
+    assert created_escenario_id in ids
+
+    # Filtrar por un proyecto inexistente
+    res_empty = client.get("/escenarios/?proyecto_id=999999", headers=headers)
+    assert res_empty.status_code == 200
+    assert res_empty.json() == []
+
+
+def test_obtener_escenario_por_id():
+    headers = get_auth_headers()
+    response = client.get(f"/escenarios/{created_escenario_id}", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == created_escenario_id
+    assert data["nombre"] == ESCENARIO_TEST["nombre"]
+    assert data["proyecto_id"] == created_proyecto_id
+    assert data["tipo_demanda"] == ESCENARIO_TEST["tipo_demanda"]
+
+
+def test_modificar_escenario():
+    headers = get_auth_headers()
+    modificaciones = {
+        "nombre": "Escenario Horario Pico Vespertino",
+        "tipo_demanda": "Demanda Calibrada",
+        "interseccion_ref": "Insurgentes y Hamburgo",
+    }
+    response = client.put(
+        f"/escenarios/modificar/{created_escenario_id}",
+        json=modificaciones,
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == created_escenario_id
+    assert data["nombre"] == modificaciones["nombre"]
+    assert data["tipo_demanda"] == modificaciones["tipo_demanda"]
+    assert data["interseccion_ref"] == modificaciones["interseccion_ref"]
+
+
+def test_obtener_escenario_no_existente():
+    headers = get_auth_headers()
+    response = client.get("/escenarios/999999", headers=headers)
+    assert response.status_code == 404
+
+
+def test_operaciones_escenarios_no_autorizadas():
+    res_list = client.get("/escenarios/")
+    assert res_list.status_code == 401
+
+    res_create = client.post(
+        "/escenarios/crear",
+        json={**ESCENARIO_TEST, "proyecto_id": created_proyecto_id},
+    )
+    assert res_create.status_code == 401
+
+    res_get = client.get(f"/escenarios/{created_escenario_id}")
+    assert res_get.status_code == 401
+
+    res_put = client.put(
+        f"/escenarios/modificar/{created_escenario_id}",
+        json={"nombre": "Hack"},
+    )
+    assert res_put.status_code == 401
+
+    res_del = client.delete(f"/escenarios/{created_escenario_id}")
+    assert res_del.status_code == 401
+
+
+def test_eliminar_escenario():
+    headers = get_auth_headers()
+    temp_escenario = {
+        "proyecto_id": created_proyecto_id,
+        "nombre": "Escenario Temporal Para Borrar",
+    }
+    create_res = client.post("/escenarios/crear", json=temp_escenario, headers=headers)
+    assert create_res.status_code == 201
+    temp_id = create_res.json()["id"]
+
+    del_res = client.delete(f"/escenarios/{temp_id}", headers=headers)
+    assert del_res.status_code == 204
+
+    get_res = client.get(f"/escenarios/{temp_id}", headers=headers)
+    assert get_res.status_code == 404
+
+
+# ====================================
+# Tests para Resultados
+# ====================================
+
+created_resultado_id = None
+
+
+def test_crear_resultado_formato_simulador():
+    global created_resultado_id
+    headers = get_auth_headers()
+    payload = {
+        "escenario_id": created_escenario_id,
+        "vehiculos_simulados": 95,
+        "tiempo_promedio_recorrido": 174.3684210526316,
+        "espera_promedio": 18.694736842105264,
+    }
+    response = client.post("/resultados/crear", json=payload, headers=headers)
+    assert response.status_code == 201
+    data = response.json()
+    assert "id" in data
+    assert data["escenario_id"] == created_escenario_id
+    assert data["vehiculos_atendidos"] == 95
+    assert data["tiempo_promedio_espera"] == 18.694736842105264
+    assert "fecha_ejecucion" in data
+    created_resultado_id = data["id"]
+
+
+def test_obtener_todos_los_resultados():
+    headers = get_auth_headers()
+    response = client.get("/resultados/", headers=headers)
+    assert response.status_code == 200
+    resultados = response.json()
+    assert isinstance(resultados, list)
+    assert len(resultados) >= 1
+    ids = [r["id"] for r in resultados]
+    assert created_resultado_id in ids
+
+
+def test_obtener_resultados_filtrados_por_escenario():
+    headers = get_auth_headers()
+    response = client.get(
+        f"/resultados/?escenario_id={created_escenario_id}", headers=headers
+    )
+    assert response.status_code == 200
+    resultados = response.json()
+    assert isinstance(resultados, list)
+    ids = [r["id"] for r in resultados]
+    assert created_resultado_id in ids
+
+
+def test_obtener_resultado_por_id():
+    headers = get_auth_headers()
+    response = client.get(f"/resultados/{created_resultado_id}", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == created_resultado_id
+    assert data["escenario_id"] == created_escenario_id
+    assert data["vehiculos_atendidos"] == 95
+
+
+def test_eliminar_resultado():
+    headers = get_auth_headers()
+    del_res = client.delete(f"/resultados/{created_resultado_id}", headers=headers)
+    assert del_res.status_code == 204
+
+    get_res = client.get(f"/resultados/{created_resultado_id}", headers=headers)
+    assert get_res.status_code == 404
+
+
+# ====================================
 # Limpieza Final: Eliminación de Usuario
 # ====================================
 

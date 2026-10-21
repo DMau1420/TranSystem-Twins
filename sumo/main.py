@@ -11,8 +11,11 @@ from data_generators import conversor_net_to_geojson
 from scenario_builder import construir_red_escenario
 from simulation_engine import ejecutar_simulacion
 from result_analyzer import procesar_resultados
+from utils import carpeta_proyecto, carpeta_escenario
 from pathlib import Path
 import requests
+
+BASE_URL = "http://localhost:8000"  #Ajustar al puerto del backend (Mau)
 
 
 def calcular_bbox(polygon):
@@ -35,16 +38,17 @@ def importar_zona(proyecto, herramientas):
 
     print(f"Importando zona para el proyecto '{proyecto['nombre']}'...")
 
+    carpeta = carpeta_proyecto(proyecto["id"])
     polygon = proyecto["geometria"]["geoJson"]["geometry"]
     bbox = calcular_bbox(polygon)
     print(f"  bbox calculado: {bbox}")
 
-    archivo_osm = descargar_red(bbox)
+    archivo_osm = descargar_red(bbox, carpeta)
     if archivo_osm is None:
         raise Exception("No se pudo descargar la red desde Overpass tras varios intentos")
 
-    archivo_red_base = conversor_osm_to_netxml(netconvertBinary, archivo_osm)
-    archivo_geojson = conversor_net_to_geojson(archivo_red_base)
+    archivo_red_base = conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta)
+    archivo_geojson = conversor_net_to_geojson(archivo_red_base, carpeta)
 
     print("  Red base importada correctamente.")
 
@@ -69,25 +73,26 @@ def simular_escenario(escenario, red_base, herramientas):
 
     print(f"Simulando escenario '{escenario['nombre']}'...")
 
-    carpeta_escenario = f"storage/proyectos/{escenario['proyecto_id']}/escenarios/{escenario['id']}"
+    # Un escenario = una configuración + su resultado más reciente.
+    carpeta_del_escenario = carpeta_escenario(escenario["proyecto_id"], escenario["id"])
 
     # Genera (o reutiliza, si no hay modificaciones) la red propia del escenario.
     # Nunca toca red_base["netxml_base_url"] -- eso es de solo lectura aquí.
     archivo_red_escenario = construir_red_escenario(
         netconvertBinary,
         red_base["netxml_base_url"],
-        carpeta_escenario,
+        carpeta_del_escenario,
         modificaciones_edges=escenario.get("modificaciones_edges"),
         modificaciones_semaforos=escenario.get("modificaciones_semaforos"),
     )
 
     archivo_rutas = generar_rutas_aleatorias(
-        random_trips, archivo_red_escenario, escenario["demanda_vehicular"]
+        random_trips, archivo_red_escenario, escenario["demanda_vehicular"], carpeta_del_escenario
     )
-    archivo_config = crear_sumo_config(archivo_red_escenario, archivo_rutas)
+    archivo_config = crear_sumo_config(archivo_red_escenario, archivo_rutas, carpeta_del_escenario)
 
     duracion = escenario.get("duracion_segundos", 7200)  # TODO: definir esto en el esquema del escenario
-    archivo_resultados = ejecutar_simulacion(sumoBinary, archivo_config, duracion_segundos=duracion)
+    archivo_resultados = ejecutar_simulacion(sumoBinary, archivo_config, carpeta_del_escenario, duracion_segundos=duracion)
     indicadores = procesar_resultados(archivo_resultados)
 
     print(f"  Indicadores: {indicadores}")
@@ -101,7 +106,7 @@ def enviar_resultado(escenario_id, indicadores):
         "escenario_id": escenario_id,
         **indicadores,
     }
-    base_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+    base_url = os.getenv("BACKEND_URL", BASE_URL)
     if not base_url.startswith("http"):
         base_url = f"http://{base_url}"
     respuesta = requests.post(f"{base_url}/resultado-sumo", json=payload)
