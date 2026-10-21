@@ -20,8 +20,6 @@ ENV UV_COMPILE_BYTECODE=1 \
 # Copy dependency metadata first for optimal layer caching
 COPY pyproject.toml uv.lock* .python-version* ./
 
-# Install dependencies into virtualenv
-RUN uv
 # Copy application source code
 COPY . /app
 

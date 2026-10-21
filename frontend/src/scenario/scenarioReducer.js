@@ -22,10 +22,7 @@ function commit(state, next) {
   };
 }
 
-const withEdits = (doc, edits) => ({
-  ...doc,
-  edits: { ...doc.edits, ...edits },
-});
+const withEdits = (doc, edits) => ({ ...doc, edits: { ...doc.edits, ...edits } });
 
 const omit = (obj, key) => {
   const { [key]: _removed, ...rest } = obj;
@@ -45,6 +42,15 @@ export function scenarioReducer(state, action) {
     case 'RENAME':
       return commit(state, { ...doc, name: action.name });
 
+    case 'SET_DEMANDA': // vehículos por hora, total del escenario
+      return commit(state, { ...doc, demandaVehicular: Math.max(0, Math.round(action.value)) });
+
+    case 'SET_DURACION': // duración de la simulación, en segundos
+      return commit(state, { ...doc, duracionSegundos: Math.max(1, Math.round(action.value)) });
+
+    case 'SET_RESULTADO': // último resultado de simulación recibido (no pasa por el historial)
+      return { ...state, present: { ...doc, ultimoResultado: action.resultado } };
+
     case 'SET_AREA': // zona dibujada/seleccionada + origen de la red
       return commit(state, {
         ...doc,
@@ -56,8 +62,7 @@ export function scenarioReducer(state, action) {
       const { id, prop, value } = action; // prop: 'maxspeed' | 'lanes'
       const range = prop === 'maxspeed' ? LIMITS.maxspeedKmh : LIMITS.lanes;
       let edge = { ...(doc.edits.edges[id] ?? {}) };
-      if (value === null || value === undefined || value === '')
-        delete edge[prop];
+      if (value === null || value === undefined || value === '') delete edge[prop];
       else edge[prop] = clamp(value, range);
 
       const edges =
@@ -68,10 +73,7 @@ export function scenarioReducer(state, action) {
     }
 
     case 'RESET_EDGE':
-      return commit(
-        state,
-        withEdits(doc, { edges: omit(doc.edits.edges, action.id) })
-      );
+      return commit(state, withEdits(doc, { edges: omit(doc.edits.edges, action.id) }));
 
     case 'SET_TLS': {
       const phases = action.phases.map((p) => ({
@@ -81,19 +83,13 @@ export function scenarioReducer(state, action) {
       return commit(
         state,
         withEdits(doc, {
-          junctions: {
-            ...doc.edits.junctions,
-            [action.id]: { tls: { phases } },
-          },
+          junctions: { ...doc.edits.junctions, [action.id]: { tls: { phases } } },
         })
       );
     }
 
     case 'RESET_JUNCTION':
-      return commit(
-        state,
-        withEdits(doc, { junctions: omit(doc.edits.junctions, action.id) })
-      );
+      return commit(state, withEdits(doc, { junctions: omit(doc.edits.junctions, action.id) }));
 
     case 'SELECT':
       return { ...state, selection: action.selection };
@@ -112,12 +108,7 @@ export function scenarioReducer(state, action) {
     case 'REDO': {
       if (!state.future.length) return state;
       const [next, ...rest] = state.future;
-      return {
-        ...state,
-        past: [...state.past, doc],
-        present: next,
-        future: rest,
-      };
+      return { ...state, past: [...state.past, doc], present: next, future: rest };
     }
 
     default:

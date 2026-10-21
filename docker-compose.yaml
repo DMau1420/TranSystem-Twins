@@ -24,6 +24,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    # Sin --reload: en Windows, el watcher de archivos de "fastapi dev" sobre
+    # un bind mount reinicia el servidor solo, cortando peticiones a medio
+    # camino (socket hang up / connection aborted). Quita esta línea si
+    # prefieres recarga automática y no te está dando problemas.
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000
     container_name: transystem_backend
     restart: unless-stopped
     environment:
