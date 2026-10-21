@@ -16,10 +16,7 @@ export const newId = (prefix = 'scn') =>
 export const clamp = (value, [min, max]) =>
   Math.min(max, Math.max(min, Math.round(Number(value))));
 
-export function createScenario({
-  projectId = null,
-  name = 'Nuevo escenario',
-} = {}) {
+export function createScenario({ projectId = null, name = 'Nuevo escenario' } = {}) {
   const now = new Date().toISOString();
   return {
     id: newId(),
@@ -39,6 +36,20 @@ export function createScenario({
 
     // De dónde salió la red base
     network: { source: null, importedAt: null }, // source: 'osm' | 'sumo'
+
+    // Vínculo con el backend real (tabla proyectos/escenarios). null hasta la
+    // primera sincronización — ver scenario/backendSync.js. No confundir con
+    // projectId/id de arriba, que son los ids LOCALES (localStorage).
+    backend: { proyectoId: null, escenarioId: null },
+
+    // Demanda vehicular del escenario completo (lo que arma el payload de
+    // simulación: "// DEMANDA: 100 · 3600s" en la tarjeta del escenario).
+    demandaVehicular: 0, // vehículos por hora, total
+    duracionSegundos: 3600, // 1 hora por defecto
+
+    // Último resultado de simulación recibido (para "ver último resultado"
+    // sin tener que volver a correr la simulación). null hasta la primera vez.
+    ultimoResultado: null,
 
     // Cambios del usuario sobre la red base, indexados por id del elemento.
     // Solo se guardan las diferencias, no la red completa.
@@ -61,17 +72,14 @@ export function parseMaxspeed(raw) {
 // Ajusta los nombres de propiedades a lo que traiga tu GeoJSON (/api/red u Overpass).
 export function effectiveEdge(baseProps = {}, edit = {}) {
   return {
-    maxspeed:
-      edit.maxspeed ?? parseMaxspeed(baseProps.maxspeed ?? baseProps.speed),
-    lanes:
-      edit.lanes ?? (Number(baseProps.lanes ?? baseProps.numLanes) || null),
+    maxspeed: edit.maxspeed ?? parseMaxspeed(baseProps.maxspeed ?? baseProps.speed),
+    lanes: edit.lanes ?? (Number(baseProps.lanes ?? baseProps.numLanes) || null),
     edited: Object.keys(edit).length > 0,
   };
 }
 
 export const countEdits = (scenario) =>
-  Object.keys(scenario.edits.edges).length +
-  Object.keys(scenario.edits.junctions).length;
+  Object.keys(scenario.edits.edges).length + Object.keys(scenario.edits.junctions).length;
 
 // Nombre genérico a partir de la ubicación de lo marcado en el mapa.
 // Prioridad: calle del primer punto → displayName (solo el primer tramo) → coordenadas.
@@ -81,7 +89,6 @@ export function locationName({ points = [] } = {}) {
   const display = points.find((p) => p.displayName)?.displayName;
   if (display) return String(display).split(',')[0].trim();
   const p = points[0];
-  if (p && typeof p.lat === 'number')
-    return `${p.lat.toFixed(3)}, ${p.lng.toFixed(3)}`;
+  if (p && typeof p.lat === 'number') return `${p.lat.toFixed(3)}, ${p.lng.toFixed(3)}`;
   return 'Sin ubicación';
 }

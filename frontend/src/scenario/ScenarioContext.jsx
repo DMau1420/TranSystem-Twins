@@ -36,6 +36,12 @@ export function ScenarioProvider({ children }) {
   // Edición
   const setArea = useCallback((area, network) => dispatch({ type: 'SET_AREA', area, network }), []);
   const rename = useCallback((name) => dispatch({ type: 'RENAME', name }), []);
+  const setDemanda = useCallback((value) => dispatch({ type: 'SET_DEMANDA', value }), []);
+  const setDuracion = useCallback((value) => dispatch({ type: 'SET_DURACION', value }), []);
+  const setResultado = useCallback(
+    (resultado) => dispatch({ type: 'SET_RESULTADO', resultado }),
+    []
+  );
   const setEdgeProp = useCallback(
     (id, prop, value) => dispatch({ type: 'SET_EDGE_PROP', id, prop, value }),
     []
@@ -91,6 +97,9 @@ export function ScenarioProvider({ children }) {
       setSaveStatus,
       setArea,
       rename,
+      setDemanda,
+      setDuracion,
+      setResultado,
       setEdgeProp,
       resetEdge,
       setTls,
@@ -106,7 +115,7 @@ export function ScenarioProvider({ children }) {
     [
       scenario, selection, savedDoc, past.length, future.length,
       targetProjectId, autoSave, setAutoSave, saveStatus,
-      setArea, rename, setEdgeProp, resetEdge, setTls, resetJunction,
+      setArea, rename, setDemanda, setDuracion, setResultado, setEdgeProp, resetEdge, setTls, resetJunction,
       select, clearSelection, undo, redo, save, load, create,
     ]
   );

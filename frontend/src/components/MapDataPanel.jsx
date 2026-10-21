@@ -4,6 +4,8 @@ import { sysCore } from '../styles/sysCore';
 import SysPanelChrome from './common/SysPanelChrome';
 import { StepperInput } from './common/StepperInput';
 import SaveScenarioForm from './editor/SaveScenarioForm';
+import DemandaPanel from './editor/DemandaPanel';
+import SimularPanel from './editor/SimularPanel';
 import { useAutoSave } from '../scenario/useScenarioSaver';
 
 const panelStyle = {
@@ -309,6 +311,8 @@ export const MapDataPanel = () => {
           </div>
 
           <SaveScenarioForm features={{ points, routes, zones }} />
+          <DemandaPanel />
+          <SimularPanel features={{ points, routes, zones }} />
 
           <div style={tabsBarStyle}>
             <button style={tabButtonStyle(tab === 'list')} onClick={() => setTab('list')}>Lista</button>
