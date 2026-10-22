@@ -7,6 +7,8 @@ import { useAuth } from '../../context/AuthContext'; // ⚠️ mismo caveat de p
 import { useScenario } from '../../scenario/ScenarioContext';
 import { useSimulacion } from '../../scenario/useSimulacion';
 import SimulationResultsModal from './SimulationResultsModal';
+import VehicleQuickAdd from './VehicleQuickAdd';
+import { generarResultadoCoherente } from '../../scenario/mockResultado';
 
 const barStyle = { padding: 14, borderBottom: `1px solid ${sysCore.color.border}` };
 
@@ -32,6 +34,21 @@ const buttonStyle = (disabled, tone = 'cyan') => ({
   letterSpacing: '0.05em',
   textTransform: 'uppercase',
 });
+
+const ghostButtonStyle = {
+  width: '100%',
+  marginTop: 8,
+  padding: '8px 0',
+  background: 'transparent',
+  color: sysCore.color.inkMuted,
+  border: `1px dashed ${sysCore.color.border}`,
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontFamily: sysCore.font.mono,
+  fontSize: 10.5,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
+};
 
 const progressTrackStyle = {
   height: 4,
@@ -90,20 +107,21 @@ export default function SimularPanel({ features }) {
   });
 
   const [showModal, setShowModal] = useState(false);
+  const [modalData, setModalData] = useState(null); // resultado real o el mock, lo que se esté mostrando
 
-  // Al completarse, guarda el resultado en el escenario (para "ver último
-  // resultado" después) y abre el modal automáticamente, como en el mockup.
+  // Al completarse de verdad, guarda el resultado en el escenario (para "ver
+  // último resultado" después) y abre el modal automáticamente.
   useEffect(() => {
     if (estado === 'completado' && resultado) {
       setResultado(resultado);
       save({ ultimoResultado: resultado });
+      setModalData(resultado);
       setShowModal(true);
     }
   }, [estado, resultado, setResultado, save]);
 
   const isSaved = Boolean(scenario.projectId);
   const running = estado === 'sincronizando' || estado === 'conectando' || estado === 'simulando';
-  const resultadoMostrado = showModal ? resultado ?? scenario.ultimoResultado : null;
 
   if (!isSaved) return null; // nada que simular hasta que exista un escenario guardado
 
@@ -114,6 +132,8 @@ export default function SimularPanel({ features }) {
       <button style={buttonStyle(running)} onClick={simular} disabled={running}>
         {running ? 'SIMULANDO…' : '▶ SIMULAR ESCENARIO'}
       </button>
+
+      <VehicleQuickAdd />
 
       {running && (
         <>
@@ -132,15 +152,23 @@ export default function SimularPanel({ features }) {
       {estado === 'error' && <div style={statusStyle('error')}>{error}</div>}
 
       {!running && scenario.ultimoResultado && (
-        <button style={linkStyle} onClick={() => setShowModal(true)}>
+        <button style={linkStyle} onClick={() => { setModalData(scenario.ultimoResultado); setShowModal(true); }}>
           ver último resultado
         </button>
       )}
 
-      {resultadoMostrado && (
+      {/* TEMPORAL: quítalo cuando haya simulaciones reales que probar */}
+      <button
+        style={ghostButtonStyle}
+        onClick={() => { setModalData(generarResultadoCoherente(scenario)); setShowModal(true); }}
+      >
+        Ver mockup de resultados
+      </button>
+
+      {showModal && modalData && (
         <SimulationResultsModal
           scenarioName={scenario.name}
-          resultado={resultadoMostrado}
+          resultado={modalData}
           onClose={() => setShowModal(false)}
         />
       )}
