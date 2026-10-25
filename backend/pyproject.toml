@@ -8,7 +8,8 @@ dependencies = [
     "fastapi[standard]>=0.141.1",
     "geoalchemy2>=0.20.0",
     "httpx2>=2.12.0",
-    "psycopg2-binary>=2.9.12",
+    "paho-mqtt>=2.1.0",
+    "psycopg2-binary>=2.9.10",
     "pwdlib[argon2]>=0.3.1",
     "pyjwt>=2.13.0",
     "pytest>=9.1.1",
@@ -21,3 +22,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+testpaths = ["test"]
+markers = [
+    "integration: tests de integración",
+]

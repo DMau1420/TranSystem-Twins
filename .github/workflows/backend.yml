@@ -42,8 +42,11 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "backend/pyproject.toml"
 
-      - name: Instalar Python
-        run: uv python install
+      - name: Instalar Python y dependencias
+        working-directory: ./backend
+        run: |
+          uv python install
+          uv sync
 
       - name: Ejecutar pruebas
         working-directory: ./backend

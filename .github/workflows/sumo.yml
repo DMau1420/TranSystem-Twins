@@ -1,0 +1,53 @@
+name: SUMO CI
+
+on:
+  push:
+    branches:
+      - main
+      - sumo
+      - integracion
+  pull_request:
+    branches:
+      - main
+      - sumo
+      - integracion
+
+jobs:
+  test:
+    name: Tests de integración SUMO
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # Instalar SUMO desde el PPA oficial de Eclipse/DLR
+      - name: Instalar SUMO
+        run: |
+          sudo add-apt-repository ppa:sumo/stable -y
+          sudo apt-get update -q
+          sudo apt-get install -y sumo sumo-tools sumo-doc
+
+      - name: Verificar instalación de SUMO
+        run: sumo --version
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "sumo/pyproject.toml"
+
+      - name: Instalar Python y dependencias
+        working-directory: ./sumo
+        run: |
+          uv python install
+          uv sync
+
+      - name: Ejecutar pruebas de integración
+        working-directory: ./sumo
+        env:
+          SUMO_HOME: /usr/share/sumo
+          TEST_SEED: "42"
+        run: uv run pytest -v -m integration
+
