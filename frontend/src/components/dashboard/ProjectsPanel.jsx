@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext'; // ⚠️ ajustá el path si difiere (mismo caveat que AccountMenu)
+import { useAuth } from '../../context/AuthContext';
 import { useMapData } from '../../context/MapDataContext';
 import { useScenario } from '../../scenario/ScenarioContext';
+import { useProyecto } from '../../context/ProyectoContext';
 import {
   listProjects,
   saveProject,
@@ -10,12 +11,22 @@ import {
   renameScenario,
   deleteScenario,
   duplicateScenario,
+  normalizeScenario,
+  getScenario,
 } from '../../scenario/scenarioStorage';
+import {
+  listarProyectos,
+  crearProyecto,
+  actualizarProyecto,
+  eliminarProyecto,
+} from '../../api/proyectosApi';
+import {
+  listarEscenarios,
+  actualizarEscenario,
+  eliminarEscenario,
+} from '../../api/escenariosApi';
 import { sysCore } from '../../styles/sysCore';
 import './ProjectsPanel.css';
-
-const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-const API_BASE = RAW_API_BASE.endsWith('/') ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
 
 // false = todo se lee/guarda del almacenamiento local del navegador (sin llamadas al backend).
 // Ponlo en true cuando el backend esté listo: intenta la API y cae al modo local si falla.
@@ -140,7 +151,8 @@ const modalButtonStyle = (disabled, danger) => ({
 export default function ProjectsPanel({ isOpen, onClose }) {
   const { token } = useAuth();
   const { hydrate } = useMapData();
-  const { load } = useScenario();
+  const { load, setTargetProjectId } = useScenario();
+  const { seleccionarProyecto, seleccionarEscenario, recargar: recargarProyectosContext } = useProyecto();
 
   const [view, setView] = useState('list'); // 'list' | 'detail'
   const [projects, setProjects] = useState([]);
@@ -154,8 +166,10 @@ export default function ProjectsPanel({ isOpen, onClose }) {
   const [creating, setCreating] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '' });
 
-  const [renaming, setRenaming] = useState(false); // renombrando el proyecto activo
+  const [renaming, setRenaming] = useState(false); // renombrando el proyecto activo en vista detalle
   const [renameValue, setRenameValue] = useState('');
+  const [renamingProjectId, setRenamingProjectId] = useState(null); // renombrando en lista
+  const [renameProjectValue, setRenameProjectValue] = useState('');
   const [renamingScenarioId, setRenamingScenarioId] = useState(null);
   const [scenarioRenameValue, setScenarioRenameValue] = useState('');
 
@@ -168,20 +182,28 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      if (USE_API) {
+      if (USE_API && token) {
         try {
-          const res = await fetch(`${API_BASE}/proyectos/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) throw new Error(`GET /proyectos/ -> ${res.status}`);
-          const data = await res.json();
-          const mapped = (Array.isArray(data) ? data : data.projects ?? []).map(p => ({
-            ...p,
-            name: p.nombre,
-            description: p.descripcion,
-            updatedAt: p.fecha_creacion,
-            scenariosCount: 0 // Fetch scenarios to count? We will see, or maybe leave it for later if backend doesn't provide it
-          }));
+          const data = await listarProyectos(token);
+          const raw = Array.isArray(data) ? data : data.projects ?? [];
+          const mapped = await Promise.all(
+            raw.map(async (p) => {
+              let count = 0;
+              try {
+                const sc = await listarEscenarios(token, p.id);
+                count = (Array.isArray(sc) ? sc : sc.scenarios ?? []).length;
+              } catch {
+                /* sin escenarios */
+              }
+              return {
+                ...p,
+                name: p.nombre,
+                description: p.descripcion,
+                updatedAt: p.fecha_creacion,
+                scenariosCount: count,
+              };
+            })
+          );
           setProjects(mapped);
           setLocalMode(false);
           return;
@@ -205,11 +227,7 @@ export default function ProjectsPanel({ isOpen, onClose }) {
       try {
         if (USE_API) {
           try {
-            const res = await fetch(`${API_BASE}/escenarios/?proyecto_id=${projectId}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error(`GET /escenarios/ -> ${res.status}`);
-            const data = await res.json();
+            const data = await listarEscenarios(token, projectId);
             const mapped = (Array.isArray(data) ? data : data.scenarios ?? []).map(s => ({
               ...s,
               name: s.nombre,
@@ -278,12 +296,7 @@ export default function ProjectsPanel({ isOpen, onClose }) {
 
     try {
       if (USE_API) {
-        const res = await fetch(`${API_BASE}/proyectos/crear`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ nombre: name, descripcion: newProject.description.trim() })
-        });
-        if (!res.ok) throw new Error('Error al crear proyecto');
+        await crearProyecto(token, { nombre: name, descripcion: newProject.description.trim() });
       } else {
         await saveProject({ name, description: newProject.description.trim() });
       }
@@ -307,21 +320,96 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     if (!name || name === activeProject.name) return;
 
     try {
-      if (USE_API) {
-        const res = await fetch(`${API_BASE}/proyectos/modificar/${activeProject.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ nombre: name })
-        });
-        if (!res.ok) throw new Error('Error al renombrar proyecto');
+      if (USE_API && token) {
+        await actualizarProyecto(token, activeProject.id, { nombre: name });
       } else {
         const { scenariosCount, ...base } = activeProject;
         await saveProject({ ...base, name, autoNamed: false });
       }
       setActiveProject((p) => ({ ...p, name }));
       setProjects((prev) => prev.map((p) => (p.id === activeProject.id ? { ...p, name } : p)));
+      recargarProyectosContext?.();
     } catch {
       setError('No se pudo renombrar el proyecto.');
+    }
+  }
+
+  // ── Renombrar proyecto en lista ─────────────────────────────────────────
+  function startRenameProject(project, e) {
+    e?.stopPropagation();
+    setRenamingProjectId(project.id);
+    setRenameProjectValue(project.name || '');
+  }
+
+  async function commitRenameProject(project) {
+    const name = renameProjectValue.trim();
+    setRenamingProjectId(null);
+    if (!name || name === project.name) return;
+
+    try {
+      if (USE_API && token) {
+        await actualizarProyecto(token, project.id, { nombre: name });
+      } else {
+        const { scenariosCount, ...base } = project;
+        await saveProject({ ...base, name, autoNamed: false });
+      }
+      setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, name } : p)));
+      recargarProyectosContext?.();
+    } catch (e) {
+      console.error('Error al renombrar proyecto:', e);
+      setError('No se pudo renombrar el proyecto.');
+    }
+  }
+
+  function askDeleteProjectFromList(project, e) {
+    e?.stopPropagation();
+    setConfirmInput('');
+    setConfirmDelete({
+      kind: 'project',
+      id: project.id,
+      name: project.name,
+      count: project.scenariosCount ?? 0,
+    });
+  }
+
+  // ── Cargar proyecto y su escenario en el editor del lado derecho ─────────
+  async function handleLoadProjectIntoEditor(project) {
+    setError(null);
+    try {
+      seleccionarProyecto(project.id);
+      setTargetProjectId(project.id);
+
+      let projectScenarios = [];
+      if (USE_API && token) {
+        try {
+          const data = await listarEscenarios(token, project.id);
+          projectScenarios = Array.isArray(data) ? data : data.scenarios ?? [];
+        } catch (e) {
+          console.warn('Error listando escenarios para proyecto:', e);
+        }
+      }
+      if (projectScenarios.length === 0) {
+        projectScenarios = await listScenarios({ projectId: project.id });
+      }
+
+      if (projectScenarios && projectScenarios.length > 0) {
+        const firstEsc = projectScenarios[0];
+        seleccionarEscenario(firstEsc.id);
+        const fullScenario = await getScenario(firstEsc.id);
+        const toLoad = normalizeScenario(fullScenario || firstEsc, project.id);
+        if (toLoad) {
+          await load(toLoad.id);
+          if (toLoad.features) {
+            hydrate(toLoad.features);
+          }
+        }
+      }
+
+      onClose();
+      window.dispatchEvent(new CustomEvent('open-map-data-panel'));
+    } catch (err) {
+      console.error('Error al cargar proyecto en el editor:', err);
+      setError('No se pudo cargar el proyecto.');
     }
   }
 
@@ -337,13 +425,8 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     if (!name || name === scenario.name) return;
 
     try {
-      if (USE_API) {
-        const res = await fetch(`${API_BASE}/escenarios/modificar/${scenario.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ nombre: name })
-        });
-        if (!res.ok) throw new Error('Error al renombrar escenario');
+      if (USE_API && token) {
+        await actualizarEscenario(token, scenario.id, { nombre: name });
       } else {
         await renameScenario(scenario.id, name);
       }
@@ -390,24 +473,17 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     setError(null);
     try {
       if (confirmDelete.kind === 'project') {
-        if (USE_API) {
-          const res = await fetch(`${API_BASE}/proyectos/${confirmDelete.id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) throw new Error('Error al eliminar proyecto');
+        if (USE_API && token) {
+          await eliminarProyecto(token, confirmDelete.id);
         } else {
           await deleteProject(confirmDelete.id);
         }
         setConfirmDelete(null);
+        recargarProyectosContext?.();
         handleBack();
       } else {
-        if (USE_API) {
-          const res = await fetch(`${API_BASE}/escenarios/${confirmDelete.id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) throw new Error('Error al eliminar escenario');
+        if (USE_API && token) {
+          await eliminarEscenario(token, confirmDelete.id);
         } else {
           await deleteScenario(confirmDelete.id);
         }
@@ -424,14 +500,25 @@ export default function ProjectsPanel({ isOpen, onClose }) {
   async function handleOpenScenario(scenario) {
     setError(null);
     try {
-      const found = await load(scenario.id);
-      if (!found) {
+      if (activeProject) {
+        seleccionarProyecto(activeProject.id);
+        setTargetProjectId(activeProject.id);
+      }
+      seleccionarEscenario(scenario.id);
+      const found = await getScenario(scenario.id);
+      const toLoad = normalizeScenario(found || scenario, activeProject?.id);
+      if (!toLoad) {
         setError('No se pudo abrir el escenario.');
         return;
       }
-      hydrate(found.features ?? {}); // repuebla puntos, rutas y zonas, y vuela hacia ellos
+      await load(toLoad.id);
+      if (toLoad.features) {
+        hydrate(toLoad.features);
+      }
       onClose();
-    } catch {
+      window.dispatchEvent(new CustomEvent('open-map-data-panel'));
+    } catch (err) {
+      console.error('Error al abrir escenario:', err);
       setError('No se pudo abrir el escenario.');
     }
   }
@@ -588,25 +675,96 @@ export default function ProjectsPanel({ isOpen, onClose }) {
 
             <div className="tst-projects__grid">
               {projects.map((project) => (
-                <button
-                  type="button"
+                <div
                   key={project.id}
                   className="tst-projects__card"
-                  onClick={() => handleOpenProject(project)}
+                  style={{ position: 'relative', cursor: 'pointer', textAlign: 'left' }}
+                  onClick={() => handleLoadProjectIntoEditor(project)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLoadProjectIntoEditor(project);
+                  }}
                 >
-                  <span className="tst-projects__card-badge">
-                    {project.scenariosCount ?? 0}
-                  </span>
-                  <span className="tst-projects__card-name">{project.name}</span>
+                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 6, zIndex: 2 }}>
+                    <span className="tst-projects__card-badge" style={{ position: 'static' }} title={`${project.scenariosCount ?? 0} escenario(s)`}>
+                      {project.scenariosCount ?? 0}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => startRenameProject(project, e)}
+                      title="Renombrar proyecto"
+                      aria-label="Renombrar proyecto"
+                      style={iconBtnStyle()}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => askDeleteProjectFromList(project, e)}
+                      title="Eliminar proyecto"
+                      aria-label="Eliminar proyecto"
+                      style={iconBtnStyle(true)}
+                    >
+                      🗑
+                    </button>
+                  </div>
+
+                  {renamingProjectId === project.id ? (
+                    <input
+                      className="tst-projects__input"
+                      style={{ padding: '4px 8px', marginTop: 8, marginBottom: 8, width: 'calc(100% - 60px)' }}
+                      value={renameProjectValue}
+                      onChange={(e) => setRenameProjectValue(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={() => commitRenameProject(project)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                        if (e.key === 'Escape') setRenamingProjectId(null);
+                      }}
+                      maxLength={80}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="tst-projects__card-name" style={{ paddingRight: 60, display: 'block' }}>
+                      {project.name}
+                    </span>
+                  )}
+
                   {project.description && (
                     <span className="tst-projects__card-desc">{project.description}</span>
                   )}
-                  {project.updatedAt && (
-                    <span className="tst-projects__card-meta">
-                      // UPDATED: {shortDate(project.updatedAt)}
-                    </span>
-                  )}
-                </button>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                    {project.updatedAt ? (
+                      <span className="tst-projects__card-meta">
+                        // UPDATED: {shortDate(project.updatedAt)}
+                      </span>
+                    ) : <span />}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenProject(project);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: sysCore.color.cyan,
+                        cursor: 'pointer',
+                        fontSize: 10.5,
+                        fontFamily: sysCore.font.mono,
+                        padding: '2px 4px',
+                        letterSpacing: '0.05em',
+                        textDecoration: 'underline',
+                      }}
+                      title="Ver escenarios de este proyecto"
+                    >
+                      Escenarios ›
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </>

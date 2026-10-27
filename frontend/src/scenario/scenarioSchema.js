@@ -79,7 +79,8 @@ export function effectiveEdge(baseProps = {}, edit = {}) {
 }
 
 export const countEdits = (scenario) =>
-  Object.keys(scenario.edits.edges).length + Object.keys(scenario.edits.junctions).length;
+  Object.keys(scenario?.edits?.edges || {}).length +
+  Object.keys(scenario?.edits?.junctions || {}).length;
 
 // Nombre genérico a partir de la ubicación de lo marcado en el mapa.
 // Prioridad: calle del primer punto → displayName (solo el primer tramo) → coordenadas.

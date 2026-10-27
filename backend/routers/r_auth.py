@@ -36,6 +36,12 @@ async def login(
 
     return AuthService.autenticar_user(db=db, correo=str(correo), pwd=str(password))
 
+@router.get("/me", response_model=UserResponse, summary="Obtener datos del usuario autenticado")
+def get_current_user(
+    current_user: User = Depends(AuthService.obtener_usuario_actual),
+):
+    return current_user
+
 @router.put("/me", response_model=UserResponse, summary="Modificar datos del usuario autenticado (PUT)")
 @router.patch("/me", response_model=UserResponse, summary="Modificar datos del usuario autenticado (PATCH)")
 def update_current_user(

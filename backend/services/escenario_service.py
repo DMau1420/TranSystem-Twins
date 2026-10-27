@@ -14,13 +14,47 @@ from schemas.sc_escenarios import CreateEscenario, UpdateEscenario
 def parse_geometry_input(geom: dict[str, Any] | str | None):
     if geom is None:
         return None
-    if isinstance(geom, dict):
-        return func.ST_SetSRID(func.ST_GeomFromGeoJSON(json.dumps(geom)), 4326)
     if isinstance(geom, str):
         trimmed = geom.strip()
         if trimmed.startswith("{"):
-            return func.ST_SetSRID(func.ST_GeomFromGeoJSON(trimmed), 4326)
-        return func.ST_SetSRID(func.ST_GeomFromText(trimmed), 4326)
+            try:
+                geom = json.loads(trimmed)
+            except Exception:
+                return func.ST_SetSRID(func.ST_GeomFromText(trimmed), 4326)
+        else:
+            return func.ST_SetSRID(func.ST_GeomFromText(trimmed), 4326)
+
+    if isinstance(geom, dict):
+        target_geom = None
+        if "type" in geom and geom["type"] in (
+            "Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon", "GeometryCollection"
+        ):
+            target_geom = geom
+        elif "geometry" in geom and isinstance(geom["geometry"], dict):
+            target_geom = geom["geometry"]
+        elif "geoJson" in geom and isinstance(geom["geoJson"], dict):
+            target_geom = geom["geoJson"].get("geometry", geom["geoJson"])
+        elif "zones" in geom and len(geom["zones"]) > 0:
+            first_zone = geom["zones"][0]
+            if "geoJson" in first_zone:
+                target_geom = first_zone["geoJson"]
+            elif "coordinates" in first_zone:
+                coords = [[c["lng"], c["lat"]] if isinstance(c, dict) else c for c in first_zone["coordinates"]]
+                if coords and coords[0] != coords[-1]:
+                    coords.append(coords[0])
+                target_geom = {"type": "Polygon", "coordinates": [coords]}
+        elif "points" in geom and len(geom["points"]) > 0:
+            coords = [[p["lng"], p["lat"]] for p in geom["points"] if "lng" in p and "lat" in p]
+            if len(coords) >= 3:
+                if coords[0] != coords[-1]:
+                    coords.append(coords[0])
+                target_geom = {"type": "Polygon", "coordinates": [coords]}
+            elif len(coords) == 1:
+                target_geom = {"type": "Point", "coordinates": coords[0]}
+
+        if target_geom:
+            return func.ST_SetSRID(func.ST_GeomFromGeoJSON(json.dumps(target_geom)), 4326)
+        return None
     return geom
 
 
@@ -114,6 +148,14 @@ class EscenarioService:
             escenario.tipo_demanda = escenario_in.tipo_demanda
         if escenario_in.interseccion_ref is not None:
             escenario.interseccion_ref = escenario_in.interseccion_ref
+        if escenario_in.demanda_vehicular is not None:
+            escenario.demanda_vehicular = escenario_in.demanda_vehicular
+        if escenario_in.duracion_segundos is not None:
+            escenario.duracion_segundos = escenario_in.duracion_segundos
+        if escenario_in.modificaciones_edges is not None:
+            escenario.modificaciones_edges = escenario_in.modificaciones_edges
+        if escenario_in.modificaciones_semaforos is not None:
+            escenario.modificaciones_semaforos = escenario_in.modificaciones_semaforos
 
         db.commit()
         db.refresh(escenario)

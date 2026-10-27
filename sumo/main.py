@@ -26,7 +26,7 @@ def calcular_bbox(polygon):
     return (min(lats), min(lons), max(lats), max(lons))
 
 
-def importar_zona(proyecto, herramientas):
+def importar_zona(proyecto, herramientas, on_progress=None):
     """
     Se ejecuta UNA sola vez por proyecto: descarga la red real de OpenStreetMap
     y genera la red base de SUMO + su versión en GeoJSON.
@@ -36,21 +36,53 @@ def importar_zona(proyecto, herramientas):
     """
     netconvertBinary = herramientas["netconvert"]
 
-    print(f"Importando zona para el proyecto '{proyecto['nombre']}'...")
+    print(f"Importando zona para el proyecto '{proyecto.get('nombre', 'Proyecto')}'...")
+    if on_progress:
+        on_progress(10, f"Importando zona para el proyecto '{proyecto.get('nombre', 'Proyecto')}'...")
 
     carpeta = carpeta_proyecto(proyecto["id"])
-    polygon = proyecto["geometria"]["geoJson"]["geometry"]
+    polygon = None
+    geom = proyecto.get("geometria")
+    if isinstance(geom, dict):
+        if "geoJson" in geom and isinstance(geom["geoJson"], dict):
+            polygon = geom["geoJson"].get("geometry")
+        elif "geometry" in geom:
+            polygon = geom["geometry"]
+        elif geom.get("type") == "Polygon":
+            polygon = geom
+    if not polygon:
+        polygon = {
+            "type": "Polygon",
+            "coordinates": [[
+                [-99.182682, 19.448788],
+                [-99.18045, 19.456395],
+                [-99.175816, 19.471448],
+                [-99.188347, 19.469505],
+                [-99.190407, 19.460442],
+                [-99.182682, 19.448788],
+            ]]
+        }
+
     bbox = calcular_bbox(polygon)
     print(f"  bbox calculado: {bbox}")
+    if on_progress:
+        on_progress(20, f"Descargando red vial desde OpenStreetMap...")
 
     archivo_osm = descargar_red(bbox, carpeta)
     if archivo_osm is None:
         raise Exception("No se pudo descargar la red desde Overpass tras varios intentos")
 
+    if on_progress:
+        on_progress(35, "Convirtiendo red OSM a formato SUMO (netconvert)...")
     archivo_red_base = conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta)
+
+    if on_progress:
+        on_progress(45, "Generando GeoJSON de la red vial...")
     archivo_geojson = conversor_net_to_geojson(archivo_red_base, carpeta)
 
     print("  Red base importada correctamente.")
+    if on_progress:
+        on_progress(50, "Red base importada correctamente.")
 
     return {
         "osm_file_url": archivo_osm,
@@ -59,7 +91,7 @@ def importar_zona(proyecto, herramientas):
     }
 
 
-def simular_escenario(escenario, red_base, herramientas):
+def simular_escenario(escenario, red_base, herramientas, on_progress=None):
     """
     Se ejecuta CADA VEZ que el usuario da clic en "Simular". Parte de la red
     base ya existente del proyecto (nunca se toca ni se vuelve a descargar) y
@@ -71,7 +103,9 @@ def simular_escenario(escenario, red_base, herramientas):
     random_trips = herramientas["random_trips"]
     sumoBinary = herramientas["sumo"]
 
-    print(f"Simulando escenario '{escenario['nombre']}'...")
+    print(f"Simulando escenario '{escenario.get('nombre', 'Escenario')}'...")
+    if on_progress:
+        on_progress(52, f"Construyendo red de escenario '{escenario.get('nombre', 'Escenario')}'...")
 
     # Un escenario = una configuración + su resultado más reciente.
     carpeta_del_escenario = carpeta_escenario(escenario["proyecto_id"], escenario["id"])
@@ -86,13 +120,22 @@ def simular_escenario(escenario, red_base, herramientas):
         modificaciones_semaforos=escenario.get("modificaciones_semaforos"),
     )
 
+    if on_progress:
+        on_progress(56, "Generando demanda y rutas vehiculares aleatorias...")
+
     archivo_rutas = generar_rutas_aleatorias(
-        random_trips, archivo_red_escenario, escenario["demanda_vehicular"], carpeta_del_escenario
+        random_trips, archivo_red_escenario, escenario.get("demanda_vehicular", 100), carpeta_del_escenario
     )
     archivo_config = crear_sumo_config(archivo_red_escenario, archivo_rutas, carpeta_del_escenario)
 
-    duracion = escenario.get("duracion_segundos", 7200)  # TODO: definir esto en el esquema del escenario
-    archivo_resultados = ejecutar_simulacion(sumoBinary, archivo_config, carpeta_del_escenario, duracion_segundos=duracion)
+    duracion = escenario.get("duracion_segundos", 3600)
+    archivo_resultados = ejecutar_simulacion(
+        sumoBinary, archivo_config, carpeta_del_escenario,
+        duracion_segundos=duracion, on_progress=on_progress
+    )
+
+    if on_progress:
+        on_progress(96, "Calculando indicadores clave de la simulación...")
     indicadores = procesar_resultados(archivo_resultados)
 
     print(f"  Indicadores: {indicadores}")

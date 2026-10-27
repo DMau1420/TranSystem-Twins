@@ -35,4 +35,4 @@ RUN uv sync --no-dev
 # Place virtual environment binaries in PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["uv", "run", "python", "server.py"]

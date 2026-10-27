@@ -10,6 +10,7 @@ import Sidebar from './components/sidebar/Sidebar';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import { ProyectoProvider } from './context/ProyectoContext';
+import { SimulacionProvider } from './context/SimulacionContext';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,25 +48,26 @@ function AppLayout() {
       <MapDataProvider>
         <ScenarioProvider>
           <ProyectoProvider>
-            <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-              <Sidebar
-                active="mapa"
-                onNavigate={(id) => {
-                  if (id === 'perfil') return; // ajusta cuando exista la página de perfil
-                  // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
-                  console.log('nav ->', id);
-                }}
-                user={{
-                  name: user?.name ?? user?.username ?? 'Invitado',
-                  role: user?.role ?? 'VIEWER',
-                }}
-              />
-              <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                <MapContainer />
-                <SearchBar />
-                <MapDataPanel />
+            <SimulacionProvider>
+              <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                <Sidebar
+                  active="mapa"
+                  onNavigate={(id) => {
+                    if (id === 'perfil') return; // ajusta cuando exista la página de perfil
+                    console.log('nav ->', id);
+                  }}
+                  user={{
+                    name: user?.apodo || user?.nombre || user?.name || user?.username || 'Invitado',
+                    role: user?.rol ?? user?.role ?? 'VIEWER',
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                  <MapContainer />
+                  <SearchBar />
+                  <MapDataPanel />
+                </div>
               </div>
-            </div>
+            </SimulacionProvider>
           </ProyectoProvider>
         </ScenarioProvider>
       </MapDataProvider>

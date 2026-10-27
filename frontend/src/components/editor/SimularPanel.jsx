@@ -95,33 +95,24 @@ const ESTADO_LABEL = {
   simulando: 'SIMULANDO…',
 };
 
-export default function SimularPanel({ features }) {
-  const { token } = useAuth();
-  const { scenario, save, setResultado } = useScenario(); // save(patch) del contexto
-  const { estado, progreso, resultado, error, simular, cancelar } = useSimulacion({
-    token,
-    scenario,
-    features,
-    nombreProyectoLocal: scenario.name,
-    save,
-  });
+import { useSimulacionContext } from '../../context/SimulacionContext';
+
+export default function SimularPanel() {
+  const { scenario } = useScenario();
+  const { estado, progreso, mensaje, resultado, error, simular, cancelar, running } = useSimulacionContext();
 
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState(null); // resultado real o el mock, lo que se esté mostrando
 
-  // Al completarse de verdad, guarda el resultado en el escenario (para "ver
-  // último resultado" después) y abre el modal automáticamente.
+  // Al completarse de verdad, abre el modal automáticamente con los resultados.
   useEffect(() => {
     if (estado === 'completado' && resultado) {
-      setResultado(resultado);
-      save({ ultimoResultado: resultado });
       setModalData(resultado);
       setShowModal(true);
     }
-  }, [estado, resultado, setResultado, save]);
+  }, [estado, resultado]);
 
-  const isSaved = Boolean(scenario.projectId);
-  const running = estado === 'sincronizando' || estado === 'conectando' || estado === 'simulando';
+  const isSaved = Boolean(scenario.projectId || scenario.proyecto_id);
 
   if (!isSaved) return null; // nada que simular hasta que exista un escenario guardado
 
@@ -141,7 +132,15 @@ export default function SimularPanel({ features }) {
             <div style={progressFillStyle(progreso)} />
           </div>
           <div style={statusStyle('ok')}>
-            {ESTADO_LABEL[estado] ?? '// PROCESANDO…'} {progreso > 0 ? `${progreso}%` : ''}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, marginBottom: 4 }}>
+              <span>{ESTADO_LABEL[estado] ?? '// PROCESANDO…'}</span>
+              <span>{progreso}%</span>
+            </div>
+            {mensaje && (
+              <div style={{ fontSize: 10.5, color: '#e0f8ff', wordBreak: 'break-word', marginTop: 4 }}>
+                {'>'} {mensaje}
+              </div>
+            )}
           </div>
           <button style={{ ...buttonStyle(false, 'magenta'), marginTop: 8 }} onClick={cancelar}>
             CANCELAR
@@ -149,7 +148,7 @@ export default function SimularPanel({ features }) {
         </>
       )}
 
-      {estado === 'error' && <div style={statusStyle('error')}>{error}</div>}
+      {estado === 'error' && <div style={statusStyle('error')}>{error || mensaje}</div>}
 
       {!running && scenario.ultimoResultado && (
         <button style={linkStyle} onClick={() => { setModalData(scenario.ultimoResultado); setShowModal(true); }}>

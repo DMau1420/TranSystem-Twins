@@ -1,17 +1,17 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-const BASE_URL = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+// src/api/authApi.js
+// Endpoints de autenticación.
+// Usa API_BASE de config.js para consistencia con el resto de la app.
+import { API_BASE } from './config';
 
 /**
- * Autentica al usuario en el backend FastAPI
+ * Autentica al usuario en el backend FastAPI.
  * @param {{ correo: string, password: string }} credentials
  * @returns {Promise<{ access_token: string, token_type: string }>}
  */
 export async function loginApi({ correo, password }) {
-  const response = await fetch(`${BASE_URL}/auth/login`, {
+  const response = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ correo, password }),
   });
 
@@ -20,11 +20,9 @@ export async function loginApi({ correo, password }) {
   if (!response.ok) {
     let errorMsg = 'Error al iniciar sesión.';
     if (data?.detail) {
-      if (typeof data.detail === 'string') {
-        errorMsg = data.detail;
-      } else if (Array.isArray(data.detail)) {
+      if (typeof data.detail === 'string') errorMsg = data.detail;
+      else if (Array.isArray(data.detail))
         errorMsg = data.detail.map((err) => err.msg || err.message).join(', ');
-      }
     }
     throw new Error(errorMsg);
   }
@@ -33,23 +31,15 @@ export async function loginApi({ correo, password }) {
 }
 
 /**
- * Registra un nuevo usuario en la base de datos a través de FastAPI
+ * Registra un nuevo usuario en la base de datos a través de FastAPI.
  * @param {{ nombre: string, apodo?: string, correo: string, password: string, rol?: string }} userData
  * @returns {Promise<{ id: string, nombre: string, apodo?: string, correo: string, rol: string }>}
  */
 export async function registerApi({ nombre, apodo, correo, password, rol = 'Investigador' }) {
-  const response = await fetch(`${BASE_URL}/auth/register`, {
+  const response = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      nombre,
-      apodo: apodo || null,
-      correo,
-      password,
-      rol,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, apodo: apodo || null, correo, password, rol }),
   });
 
   const data = await response.json().catch(() => null);
@@ -57,11 +47,9 @@ export async function registerApi({ nombre, apodo, correo, password, rol = 'Inve
   if (!response.ok) {
     let errorMsg = 'Error al registrar la cuenta.';
     if (data?.detail) {
-      if (typeof data.detail === 'string') {
-        errorMsg = data.detail;
-      } else if (Array.isArray(data.detail)) {
+      if (typeof data.detail === 'string') errorMsg = data.detail;
+      else if (Array.isArray(data.detail))
         errorMsg = data.detail.map((err) => err.msg || err.message).join(', ');
-      }
     }
     throw new Error(errorMsg);
   }

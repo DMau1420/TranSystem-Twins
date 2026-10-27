@@ -11,9 +11,37 @@ import { sysCore } from '../../styles/sysCore';
 import { useScenario } from '../../scenario/ScenarioContext';
 import { useScenarioSaver } from '../../scenario/useScenarioSaver';
 import { useMapData } from '../../context/MapDataContext';
+import { useAuth } from '../../context/AuthContext';
+import { useProyecto } from '../../context/ProyectoContext';
+import { actualizarProyecto } from '../../api/proyectosApi';
+import { actualizarEscenario } from '../../api/escenariosApi';
 import { listProjects } from '../../scenario/scenarioStorage';
 
 const NEW = '__new__';
+
+const inlineInputStyle = {
+  background: 'rgba(10, 12, 16, 0.95)',
+  border: `1px solid ${sysCore.color.cyan}`,
+  color: sysCore.color.ink,
+  padding: '4px 6px',
+  fontFamily: sysCore.font.mono,
+  fontSize: 11,
+  borderRadius: 3,
+  flex: 1,
+  minWidth: 0,
+};
+
+const smallBtnStyle = (cyan = true) => ({
+  background: cyan ? 'rgba(45, 227, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+  border: `1px solid ${cyan ? sysCore.color.cyan : sysCore.color.border}`,
+  color: cyan ? sysCore.color.cyan : sysCore.color.inkMuted,
+  borderRadius: 3,
+  padding: '3px 7px',
+  cursor: 'pointer',
+  fontFamily: sysCore.font.mono,
+  fontSize: 10,
+  lineHeight: 1,
+});
 
 const barStyle = {
   padding: 14,
@@ -94,35 +122,97 @@ export default function SaveScenarioForm({ features }) {
     autoSave, setAutoSave,
     targetProjectId, setTargetProjectId,
     saveStatus,
+    rename,
+    save,
   } = useScenario();
   const { saveNow } = useScenarioSaver();
   const { hydrate } = useMapData();
+  const { token } = useAuth();
+  const { recargar: recargarProyectos, recargarEscenarios } = useProyecto();
 
   const [projects, setProjects] = useState([]);
+  const [editingProject, setEditingProject] = useState(false);
+  const [projNameInput, setProjNameInput] = useState('');
+  const [editingScenario, setEditingScenario] = useState(false);
+  const [scenNameInput, setScenNameInput] = useState('');
 
   const refresh = useCallback(async () => {
     setProjects(await listProjects());
   }, []);
 
-  // Refresca la lista al montar y después de cada guardado (cambia updatedAt)
+  // Refresca la lista al montar o al cambiar de proyecto
   useEffect(() => {
     refresh();
-  }, [refresh, scenario.updatedAt, scenario.projectId]);
+  }, [refresh, scenario.projectId]);
 
   const total =
     (features?.points?.length ?? 0) +
     (features?.routes?.length ?? 0) +
     (features?.zones?.length ?? 0);
 
-  const isSaved = Boolean(scenario.projectId);
+  const currentProjectId = scenario.projectId || scenario.proyecto_id;
+  const isSaved = Boolean(currentProjectId);
   const pending = JSON.stringify(features) !== JSON.stringify(scenario.features) || dirty;
   const saving = saveStatus === 'saving';
   const disabled = saving || (!isSaved && total === 0) || (isSaved && !pending);
-  const projectName = projects.find((p) => p.id === scenario.projectId)?.name;
+  const currentProject = projects.find((p) => String(p.id) === String(currentProjectId));
+  const projectName = currentProject?.name ?? currentProject?.nombre;
+
+  const startEditProject = () => {
+    setProjNameInput(projectName || '');
+    setEditingProject(true);
+  };
+
+  const handleSaveProjectName = async () => {
+    const val = projNameInput.trim();
+    if (!val || val === projectName) {
+      setEditingProject(false);
+      return;
+    }
+    try {
+      if (token && currentProjectId) {
+        await actualizarProyecto(token, currentProjectId, { nombre: val });
+      }
+      setProjects((prev) =>
+        prev.map((p) => (String(p.id) === String(currentProjectId) ? { ...p, name: val, nombre: val } : p))
+      );
+      recargarProyectos?.();
+    } catch (e) {
+      console.error('Error actualizando nombre de proyecto:', e);
+    } finally {
+      setEditingProject(false);
+    }
+  };
+
+  const startEditScenario = () => {
+    setScenNameInput(scenario.name || '');
+    setEditingScenario(true);
+  };
+
+  const handleSaveScenarioName = async () => {
+    const val = scenNameInput.trim();
+    if (!val || val === scenario.name) {
+      setEditingScenario(false);
+      return;
+    }
+    try {
+      rename(val);
+      await save({ name: val });
+      const escId = scenario.backend?.escenarioId || scenario.id;
+      if (token && escId && typeof escId === 'number') {
+        await actualizarEscenario(token, escId, { nombre: val });
+      }
+      recargarEscenarios?.();
+    } catch (e) {
+      console.error('Error actualizando nombre de escenario:', e);
+    } finally {
+      setEditingScenario(false);
+    }
+  };
 
   const startNew = () => {
     if (total > 0 && !window.confirm('Se vaciará lo marcado en el mapa. ¿Continuar?')) return;
-    setTargetProjectId(scenario.projectId); // el siguiente escenario queda en el mismo proyecto
+    setTargetProjectId(currentProjectId);
     create({ projectId: null });
     hydrate();
   };
@@ -161,12 +251,63 @@ export default function SaveScenarioForm({ features }) {
       </div>
 
       {isSaved ? (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ ...labelStyle, marginBottom: 2, ...ellipsis }} title={projectName}>
-            // PROYECTO: {projectName ?? '…'}
+        <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Fila Proyecto */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            {editingProject ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%' }}>
+                <input
+                  style={inlineInputStyle}
+                  value={projNameInput}
+                  onChange={(e) => setProjNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveProjectName();
+                    if (e.key === 'Escape') setEditingProject(false);
+                  }}
+                  autoFocus
+                />
+                <button style={smallBtnStyle(true)} onClick={handleSaveProjectName} title="Guardar">✓</button>
+                <button style={smallBtnStyle(false)} onClick={() => setEditingProject(false)} title="Cancelar">✕</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ ...labelStyle, marginBottom: 0, ...ellipsis, flex: 1 }} title={projectName}>
+                  // PROYECTO: <strong style={{ color: sysCore.color.cyan }}>{projectName ?? '…'}</strong>
+                </div>
+                <button style={smallBtnStyle(true)} onClick={startEditProject} title="Editar nombre del proyecto">
+                  ✎
+                </button>
+              </>
+            )}
           </div>
-          <div style={{ ...labelStyle, marginBottom: 0, ...ellipsis }}>
-            // ESCENARIO: {scenario.name}
+
+          {/* Fila Escenario */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            {editingScenario ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%' }}>
+                <input
+                  style={inlineInputStyle}
+                  value={scenNameInput}
+                  onChange={(e) => setScenNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveScenarioName();
+                    if (e.key === 'Escape') setEditingScenario(false);
+                  }}
+                  autoFocus
+                />
+                <button style={smallBtnStyle(true)} onClick={handleSaveScenarioName} title="Guardar">✓</button>
+                <button style={smallBtnStyle(false)} onClick={() => setEditingScenario(false)} title="Cancelar">✕</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ ...labelStyle, marginBottom: 0, ...ellipsis, flex: 1 }}>
+                  // ESCENARIO: <strong style={{ color: sysCore.color.ink }}>{scenario.name}</strong>
+                </div>
+                <button style={smallBtnStyle(false)} onClick={startEditScenario} title="Editar nombre del escenario">
+                  ✎
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : (

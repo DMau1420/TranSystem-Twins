@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useProyecto } from '../../context/ProyectoContext';
-import { simularEscenario } from '../../api/proyectosApi';
+import { useSimulacionContext } from '../../context/SimulacionContext';
 import { sysCore } from '../../styles/sysCore';
 
 // [clave en el resultado, etiqueta, unidad]
@@ -60,53 +60,42 @@ const S = {
 
 export default function SimularBoton() {
   const { escenarioActivo, recargarEscenarios } = useProyecto();
-  const [simulando, setSimulando] = useState(false);
+  const { running, simular, resultado, error, estado } = useSimulacionContext();
   const [segundos, setSegundos] = useState(0);
-  const [error, setError] = useState(null);
   const [modal, setModal] = useState(false);
-  const [local, setLocal] = useState(null); // { id, data } del último resultado recibido
 
-  // Cronómetro mientras corre la simulación (puede tardar minutos)
+  // Cronómetro mientras corre la simulación
   useEffect(() => {
-    if (!simulando) return undefined;
+    if (!running) return undefined;
     setSegundos(0);
     const t = setInterval(() => setSegundos((s) => s + 1), 1000);
     return () => clearInterval(t);
-  }, [simulando]);
+  }, [running]);
+
+  useEffect(() => {
+    if (estado === 'completado' && resultado) {
+      recargarEscenarios();
+      setModal(true);
+    }
+  }, [estado, resultado, recargarEscenarios]);
 
   if (!escenarioActivo) return null;
 
-  const resultado =
-    local?.id === escenarioActivo.id ? local.data : escenarioActivo.resultado ?? null;
-
-  async function simular() {
-    setSimulando(true);
-    setError(null);
-    try {
-      const data = await simularEscenario(escenarioActivo.id);
-      setLocal({ id: escenarioActivo.id, data: data?.resultado ?? data });
-      setModal(true);
-      await recargarEscenarios();
-    } catch (err) {
-      setError(err.message || 'No se pudo simular');
-    } finally {
-      setSimulando(false);
-    }
-  }
+  const resultadoVisible = resultado ?? escenarioActivo.resultado ?? null;
 
   return (
     <>
       <div style={S.wrap}>
         {error && <div style={S.err}>{error}</div>}
-        <button style={S.btn(simulando)} disabled={simulando} onClick={simular}>
-          {simulando ? `Simulando... ${segundos}s` : '▶ Simular escenario'}
+        <button style={S.btn(running)} disabled={running} onClick={simular}>
+          {running ? `Simulando... ${segundos}s` : '▶ Simular escenario'}
         </button>
-        {resultado && !simulando && (
+        {resultadoVisible && !running && (
           <button style={S.link} onClick={() => setModal(true)}>ver último resultado</button>
         )}
       </div>
 
-      {modal && resultado && (
+      {modal && resultadoVisible && (
         <div style={S.overlay} onClick={() => setModal(false)}>
           <div style={S.modal} onClick={(e) => e.stopPropagation()}>
             <div style={S.titulo}>Resultados de la simulación</div>
@@ -116,7 +105,7 @@ export default function SimularBoton() {
               <div key={clave} style={S.fila}>
                 <span>{etiqueta}</span>
                 <span style={S.valor}>
-                  {resultado[clave] ?? '—'}{unidad && resultado[clave] != null ? ` ${unidad}` : ''}
+                  {resultadoVisible[clave] ?? '—'}{unidad && resultadoVisible[clave] != null ? ` ${unidad}` : ''}
                 </span>
               </div>
             ))}

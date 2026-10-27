@@ -29,6 +29,7 @@ import SumoNetworkLayer from './SumoNetworkLayer';
 import { useProyecto } from '../../context/ProyectoContext';
 import EdicionPanel from './EdicionPanel';
 import SimularBoton from './SimularBoton';
+import BottomProgressBar from './BottomProgressBar';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -266,6 +267,7 @@ export const MapContainer = () => {
       </LeafletMap>
 
       {capaSumoVisible && <SimularBoton />}
+      <BottomProgressBar />
 
       {capaSumoVisible && seleccion && (
         <EdicionPanel seleccion={seleccion} onClose={() => setSeleccion(null)} />

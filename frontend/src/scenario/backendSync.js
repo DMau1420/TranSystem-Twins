@@ -8,9 +8,14 @@ import { crearProyecto } from '../api/proyectosApi';
 import { crearEscenario, actualizarEscenario } from '../api/escenariosApi';
 import { scenarioToProyectoPayload, scenarioToEscenarioPayload } from './escenarioMapper';
 
-// Devuelve { proyectoId, escenarioId } del backend, creando lo que falte.
-// save(patch) es el `save` de useScenario(), para persistir backend.{...} en
-// el escenario local una vez que el backend confirma los ids.
+/**
+ * Garantiza que el escenario local tenga un proyecto y escenario equivalente
+ * en el backend real.
+ *
+ * Devuelve { proyectoId, escenarioId } del backend, creando lo que falte.
+ * save(patch) es el `save` de useScenario(), para persistir backend.{...} en
+ * el escenario local una vez que el backend confirma los ids.
+ */
 export async function ensureEnBackend({ token, scenario, features, nombreProyectoLocal, save }) {
   let { proyectoId, escenarioId } = scenario.backend ?? {};
 

@@ -17,7 +17,7 @@ const DELETE_CONFIRM_WORD = 'ELIMINAR';
  *  - onClose: () => void
  */
 export default function AccountMenu({ isOpen, onClose }) {
-  const { token, logout } = useAuth();
+  const { token, logout, user } = useAuth();
 
   const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'delete'
   const [form, setForm] = useState({ name: '', email: '' });
@@ -38,14 +38,19 @@ export default function AccountMenu({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/me', {
+      const res = await fetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(`GET /api/me -> ${res.status}`);
+      if (!res.ok) throw new Error(`GET /api/auth/me -> ${res.status}`);
       const data = await res.json();
-      setForm({ name: data.name ?? '', email: data.email ?? '' });
+      setForm({ name: data.nombre ?? '', email: data.correo ?? '' });
     } catch (err) {
-      setError('No se pudo cargar la información de la cuenta.');
+      // Fallback: datos de la sesión guardada en el navegador
+      if (user?.nombre || user?.correo) {
+        setForm({ name: user.nombre ?? '', email: user.correo ?? '' });
+      } else {
+        setError('No se pudo cargar la información de la cuenta.');
+      }
     } finally {
       setLoading(false);
     }
@@ -55,15 +60,15 @@ export default function AccountMenu({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/me', {
+      const res = await fetch('/api/auth/me', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ nombre: form.name, correo: form.email }),
       });
-      if (!res.ok) throw new Error(`PATCH /api/me -> ${res.status}`);
+      if (!res.ok) throw new Error(`PATCH /api/auth/me -> ${res.status}`);
       setMode('view');
     } catch (err) {
       setError('No se pudo guardar los cambios.');
@@ -76,11 +81,11 @@ export default function AccountMenu({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/me', {
+      const res = await fetch('/api/auth/me', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(`DELETE /api/me -> ${res.status}`);
+      if (!res.ok) throw new Error(`DELETE /api/auth/me -> ${res.status}`);
       logout();
       onClose();
     } catch (err) {

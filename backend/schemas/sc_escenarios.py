@@ -23,6 +23,10 @@ class UpdateEscenario(BaseModel):
     osm_file_url: str | None = None
     tipo_demanda: str | None = None
     interseccion_ref: str | None = None
+    demanda_vehicular: int | None = None
+    duracion_segundos: int | None = None
+    modificaciones_edges: list[dict] | None = None
+    modificaciones_semaforos: list[dict] | None = None
 
 
 class ModificarEdge(BaseModel):
@@ -61,5 +65,10 @@ class EscenarioResponse(BaseModel):
     @classmethod
     def parse_geom(cls, v: Any) -> Any:
         if isinstance(v, WKBElement):
-            return str(v)
+            try:
+                from geoalchemy2.shape import to_shape
+                from shapely.geometry import mapping
+                return mapping(to_shape(v))
+            except Exception:
+                return str(v)
         return v

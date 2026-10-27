@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
-import { listarProyectos, listarEscenarios } from '../api/proyectosApi';
+import { listarProyectos } from '../api/proyectosApi';
+import { listarEscenarios } from '../api/escenariosApi';
 
 const ProyectoContext = createContext(null);
 
@@ -21,7 +22,7 @@ function indexarMods(mods, clave) {
 }
 
 export function ProyectoProvider({ children }) {
-  const { user } = useAuth();
+  const { token, user } = useAuth();
   const [proyectos, setProyectos] = useState([]);
   const [activoId, setActivoId] = useState(() => localStorage.getItem(ACTIVE_STORAGE_KEY));
   const [escenarios, setEscenarios] = useState([]);
@@ -29,14 +30,15 @@ export function ProyectoProvider({ children }) {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
 
-  // NUEVO: visibilidad de la capa SUMO (antes vivía local en MapContainer)
+  // Visibilidad de la capa SUMO
   const [capaSumoVisible, setCapaSumoVisible] = useState(false);
 
   const recargar = useCallback(async () => {
+    if (!token) return;
     setCargando(true);
     setError(null);
     try {
-      const data = await listarProyectos();
+      const data = await listarProyectos(token);
       setProyectos(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[ProyectoContext] No se pudieron cargar los proyectos:', err);
@@ -44,7 +46,7 @@ export function ProyectoProvider({ children }) {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (user) recargar();
@@ -58,18 +60,18 @@ export function ProyectoProvider({ children }) {
   const proyectoId = proyectoActivo?.id ?? null;
 
   const recargarEscenarios = useCallback(async () => {
-    if (proyectoId == null) {
+    if (!token || proyectoId == null) {
       setEscenarios([]);
       return;
     }
     try {
-      const data = await listarEscenarios(proyectoId);
+      const data = await listarEscenarios(token, proyectoId);
       setEscenarios(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[ProyectoContext] No se pudieron cargar los escenarios:', err);
       setEscenarios([]);
     }
-  }, [proyectoId]);
+  }, [token, proyectoId]);
 
   useEffect(() => {
     recargarEscenarios();

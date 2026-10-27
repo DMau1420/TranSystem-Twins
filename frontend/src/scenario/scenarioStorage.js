@@ -45,6 +45,89 @@ export async function listScenarios({ projectId } = {}) {
   return filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+export function geomToFeatures(geom) {
+  if (!geom) return { points: [], routes: [], zones: [] };
+  let polygon = geom;
+  if (geom.type === 'Feature' && geom.geometry) polygon = geom.geometry;
+  if (polygon.type === 'Polygon' && Array.isArray(polygon.coordinates)) {
+    const coords = polygon.coordinates[0]?.map((pt) => {
+      if (Array.isArray(pt)) return { lat: pt[1], lng: pt[0] };
+      return pt;
+    }) || [];
+    if (coords.length > 0) {
+      return {
+        points: [],
+        routes: [],
+        zones: [{
+          id: 'zone_primary',
+          coordinates: coords,
+          geoJson: polygon,
+          vehiculos_por_hora: 100,
+        }],
+      };
+    }
+  }
+  return { points: [], routes: [], zones: [] };
+}
+
+export function indexarEdges(mods = []) {
+  const edges = {};
+  if (Array.isArray(mods)) {
+    mods.forEach((m) => {
+      if (m && m.edge_id) {
+        edges[m.edge_id] = {
+          lanes: m.carriles,
+          maxspeed: m.velocidad_max,
+        };
+      }
+    });
+  }
+  return edges;
+}
+
+export function indexarJunctions(mods = []) {
+  const junctions = {};
+  if (Array.isArray(mods)) {
+    mods.forEach((m) => {
+      if (m && m.tls_id) {
+        junctions[m.tls_id] = {
+          tls: { phases: m.fases || [] },
+        };
+      }
+    });
+  }
+  return junctions;
+}
+
+export function normalizeScenario(s, projectId = null) {
+  if (!s) return null;
+  const pId = projectId ?? s.proyecto_id ?? s.projectId ?? null;
+  const edges = indexarEdges(s.modificaciones_edges);
+  const junctions = indexarJunctions(s.modificaciones_semaforos);
+  const edits = s.edits ? { edges: { ...edges, ...s.edits.edges }, junctions: { ...junctions, ...s.edits.junctions } } : { edges, junctions };
+  const features = s.features && (s.features.points || s.features.routes || s.features.zones)
+    ? s.features
+    : geomToFeatures(s.zona_geom);
+
+  return {
+    id: s.id,
+    projectId: pId,
+    proyecto_id: pId,
+    name: s.nombre || s.name || 'Escenario 1',
+    version: 1,
+    createdAt: s.fecha_creacion || s.createdAt || new Date().toISOString(),
+    updatedAt: s.fecha_creacion || s.updatedAt || new Date().toISOString(),
+    area: s.zona_geom || s.area || null,
+    features,
+    network: s.network || { source: 'osm', importedAt: null },
+    backend: { proyectoId: pId, escenarioId: s.id },
+    demandaVehicular: s.demanda_vehicular ?? s.demandaVehicular ?? 100,
+    duracionSegundos: s.duracion_segundos ?? s.duracionSegundos ?? 3600,
+    ultimoResultado: s.resultado ?? s.ultimoResultado ?? null,
+    edits,
+  };
+}
+
 export async function getScenario(id) {
   const token = getToken();
   if (token) {
@@ -52,13 +135,14 @@ export async function getScenario(id) {
       const res = await fetch(`${API_BASE}/escenarios/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const s = await res.json();
-        return { ...s, name: s.nombre, updatedAt: s.fecha_creacion };
+        return normalizeScenario(s);
       }
     } catch (e) {
       console.warn("Fallo getScenario backend", e);
     }
   }
-  return readAll()[id] ?? null;
+  const local = readAll()[id];
+  return local ? normalizeScenario(local) : null;
 }
 
 export async function saveScenario(scenario) {
@@ -67,12 +151,17 @@ export async function saveScenario(scenario) {
   if (token) {
     try {
       let res;
-      // Asume que si no tiene id numerico es nuevo, o si es string como tst_...
       const isNew = !scenario.id || typeof scenario.id === 'string';
+      let zonaGeom = saved.zona_geom;
+      if (!zonaGeom && saved.features?.zones?.[0]?.geoJson) {
+        zonaGeom = saved.features.zones[0].geoJson;
+      }
       const payload = {
         nombre: saved.name || saved.nombre,
-        zona_geom: saved.zona_geom || saved.features,
-        proyecto_id: saved.projectId
+        zona_geom: zonaGeom || null,
+        proyecto_id: saved.projectId || saved.proyecto_id,
+        demanda_vehicular: saved.demandaVehicular ?? 100,
+        duracion_segundos: saved.duracionSegundos ?? 3600,
       };
       
       if (isNew) {
@@ -91,7 +180,7 @@ export async function saveScenario(scenario) {
       
       if (res.ok) {
         const s = await res.json();
-        return { ...s, ...saved, id: s.id, name: s.nombre, updatedAt: s.fecha_creacion };
+        return normalizeScenario({ ...saved, ...s });
       }
     } catch (e) {
       console.warn("Fallo saveScenario backend", e);
@@ -101,7 +190,7 @@ export async function saveScenario(scenario) {
   const all = readAll();
   all[saved.id] = saved;
   writeAll(all);
-  return saved;
+  return normalizeScenario(saved);
 }
 
 export async function deleteScenario(id) {

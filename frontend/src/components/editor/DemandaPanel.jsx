@@ -3,6 +3,7 @@
 // la simulación. Va arriba de SimularPanel, dentro de MapDataPanel.
 // Corresponde a lo que la tarjeta del escenario muestra como
 // "// DEMANDA: 100 · 3600s" en el mockup que compartiste.
+import { useState, useEffect } from 'react';
 import { sysCore } from '../../styles/sysCore';
 import { useScenario } from '../../scenario/ScenarioContext';
 import { StepperInput } from '../common/StepperInput';
@@ -42,6 +43,20 @@ const MAX_VEHICULOS = 99999;
 
 export default function DemandaPanel() {
   const { scenario, setDemanda, setDuracion } = useScenario();
+  const [localDuracion, setLocalDuracion] = useState(scenario.duracionSegundos ?? 3600);
+
+  useEffect(() => {
+    setLocalDuracion(scenario.duracionSegundos ?? 3600);
+  }, [scenario.duracionSegundos]);
+
+  const commitDuracion = (val) => {
+    const num = parseInt(val, 10);
+    const finalVal = isNaN(num) || num < 1 ? 1 : num;
+    setLocalDuracion(finalVal);
+    if (finalVal !== scenario.duracionSegundos) {
+      setDuracion(finalVal);
+    }
+  };
 
   return (
     <div style={barStyle}>
@@ -64,9 +79,16 @@ export default function DemandaPanel() {
           <input
             type="number"
             style={durationFieldStyle}
-            value={scenario.duracionSegundos ?? 3600}
+            value={localDuracion}
             min={1}
-            onChange={(e) => setDuracion(Number(e.target.value) || 1)}
+            onChange={(e) => setLocalDuracion(e.target.value)}
+            onBlur={(e) => commitDuracion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitDuracion(e.target.value);
+                e.currentTarget.blur();
+              }
+            }}
           />
         </div>
       </div>
