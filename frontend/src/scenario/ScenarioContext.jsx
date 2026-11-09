@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useState } from 'react';
 import { initialState, scenarioReducer } from './scenarioReducer';
 import { countEdits, createScenario } from './scenarioSchema';
-import { getScenario, saveScenario } from './scenarioStorage';
+import { getScenario, saveScenario, markActiveScenario } from './scenarioStorage';
 
 const ScenarioContext = createContext(null);
 
@@ -63,6 +63,9 @@ export function ScenarioProvider({ children }) {
   const save = useCallback(async (patch = {}) => {
     const saved = await saveScenario({ ...scenario, ...patch });
     dispatch({ type: 'MARK_SAVED', scenario: saved });
+    // Recuerda cuál es el escenario activo para poder resumirlo si la página
+    // se recarga — sin esto, cada recarga volvía a crear un proyecto nuevo.
+    if (saved.projectId) markActiveScenario(saved.id);
     return saved;
   }, [scenario]);
 
@@ -71,6 +74,7 @@ export function ScenarioProvider({ children }) {
     if (found) {
       dispatch({ type: 'LOAD', scenario: found });
       setSaveStatus('idle');
+      if (found.projectId) markActiveScenario(found.id);
     }
     return found;
   }, []);

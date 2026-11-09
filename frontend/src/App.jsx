@@ -3,13 +3,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { MapDataProvider } from './context/MapDataContext';
 import { MapThemeProvider } from './context/MapThemeContext';
 import { ScenarioProvider } from './scenario/ScenarioContext';
+import ResumeActiveScenario from './ResumeActiveScenario';
 import MapContainer from './components/map/MapContainer';
 import MapDataPanel from './components/MapDataPanel';
 import SearchBar from './components/SearchBar';
 import Sidebar from './components/sidebar/Sidebar';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import { ProyectoProvider } from './context/ProyectoContext';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,27 +46,26 @@ function AppLayout() {
     <MapThemeProvider>
       <MapDataProvider>
         <ScenarioProvider>
-          <ProyectoProvider>
-            <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-              <Sidebar
-                active="mapa"
-                onNavigate={(id) => {
-                  if (id === 'perfil') return; // ajusta cuando exista la página de perfil
-                  // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
-                  console.log('nav ->', id);
-                }}
-                user={{
-                  name: user?.name ?? user?.username ?? 'Invitado',
-                  role: user?.role ?? 'VIEWER',
-                }}
-              />
-              <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                <MapContainer />
-                <SearchBar />
-                <MapDataPanel />
-              </div>
+          <ResumeActiveScenario />
+          <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+            <Sidebar
+              active="mapa"
+              onNavigate={(id) => {
+                if (id === 'perfil') return; // ajusta cuando exista la página de perfil
+                // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
+                console.log('nav ->', id);
+              }}
+              user={{
+                name: user?.name ?? user?.username ?? 'Invitado',
+                role: user?.role ?? 'VIEWER',
+              }}
+            />
+            <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+              <MapContainer />
+              <SearchBar />
+              <MapDataPanel />
             </div>
-          </ProyectoProvider>
+          </div>
         </ScenarioProvider>
       </MapDataProvider>
     </MapThemeProvider>
