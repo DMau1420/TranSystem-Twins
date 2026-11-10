@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useProyecto } from '../../context/ProyectoContext';
-import { modificarEdge, modificarSemaforo } from '../../api/proyectosApi';
+import { useAuth } from '../../context/AuthContext';
+import { patchInfraestructura, patchSemaforo } from '../../api/escenariosApi';
 import { sysCore } from '../../styles/sysCore';
 
 const S = {
@@ -34,7 +35,7 @@ const S = {
   aviso: { marginTop: 10, fontSize: 10.5, lineHeight: 1.4, color: '#e0c060' },
 };
 
-function PanelCalle({ p, escenario, guardado, onGuardado }) {
+function PanelCalle({ p, escenario, guardado, onGuardado, token }) {
   const [carriles, setCarriles] = useState(guardado?.carriles ?? p.carriles);
   const [velocidad, setVelocidad] = useState(guardado?.velocidad_max ?? p.velocidad_max);
   const [msg, setMsg] = useState(null);
@@ -48,7 +49,7 @@ function PanelCalle({ p, escenario, guardado, onGuardado }) {
 
     setGuardando(true);
     try {
-      await modificarEdge(escenario.id, p.edge_id, { carriles: c, velocidad_max: v });
+      await patchInfraestructura(token, escenario.id, p.edge_id, { carriles: c, velocidad_max: v });
       await onGuardado();
       setMsg({ ok: true, t: 'Guardado en el escenario' });
     } catch (err) {
@@ -90,7 +91,7 @@ function PanelCalle({ p, escenario, guardado, onGuardado }) {
   );
 }
 
-function PanelSemaforo({ p, escenario, guardado, onGuardado }) {
+function PanelSemaforo({ p, escenario, guardado, onGuardado, token }) {
   const idPrograma = Object.keys(p.programas || {})[0];
   const originales = idPrograma ? p.programas[idPrograma] : [];
   const fasesGuardadas = Array.isArray(guardado) ? guardado : guardado?.fases;
@@ -117,7 +118,7 @@ function PanelSemaforo({ p, escenario, guardado, onGuardado }) {
 
     setGuardando(true);
     try {
-      await modificarSemaforo(escenario.id, p.tls_id, fases);
+      await patchSemaforo(token, escenario.id, p.tls_id, { fases });
       await onGuardado();
       setMsg({ ok: true, t: 'Guardado. Este semáforo correrá a tiempo fijo en la próxima simulación.' });
     } catch (err) {
@@ -165,6 +166,7 @@ function PanelSemaforo({ p, escenario, guardado, onGuardado }) {
 
 export default function EdicionPanel({ seleccion, onClose }) {
   const { escenarioActivo, modsEdges, modsSemaforos, recargarEscenarios } = useProyecto();
+  const { token } = useAuth();
   const { tipo, id, props: p } = seleccion;
   const esCalle = tipo === 'calle';
 
@@ -198,6 +200,7 @@ export default function EdicionPanel({ seleccion, onClose }) {
           escenario={escenarioActivo}
           guardado={modsEdges[id]}
           onGuardado={recargarEscenarios}
+          token={token}
         />
       ) : (
         <PanelSemaforo
@@ -206,6 +209,7 @@ export default function EdicionPanel({ seleccion, onClose }) {
           escenario={escenarioActivo}
           guardado={modsSemaforos[id]}
           onGuardado={recargarEscenarios}
+          token={token}
         />
       )}
     </div>

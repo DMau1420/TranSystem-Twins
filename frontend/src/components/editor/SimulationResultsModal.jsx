@@ -2,7 +2,7 @@
 // Calca el mockup compartido: tarjeta centrada sobre el mapa con el nombre
 // del escenario, 5 métricas, un aviso sobre variabilidad, y CERRAR.
 //
-// ⚠️ Nombres de campo del resultado: el README solo documenta
+//  Nombres de campo del resultado: el README solo documenta
 // tiempo_promedio_espera / velocidad_promedio / longitud_max_fila /
 // vehiculos_atendidos. El mockup muestra una métrica más ("Tiempo prom. de
 // recorrido") que no está en esa lista. Como no hay un /resultados real

@@ -3,7 +3,7 @@
 // sentido una vez que el escenario ya se guardó al menos una vez.
 import { useEffect, useRef, useState } from 'react';
 import { sysCore } from '../../styles/sysCore';
-import { useAuth } from '../../context/AuthContext'; // ⚠️ mismo caveat de path que en AccountMenu/ProjectsPanel
+import { useAuth } from '../../context/AuthContext'; //  mismo caveat de path que en AccountMenu/ProjectsPanel
 import { useScenario } from '../../scenario/ScenarioContext';
 import { useSimulacion } from '../../scenario/useSimulacion';
 import SimulationResultsModal from './SimulationResultsModal';
@@ -95,20 +95,16 @@ const ESTADO_LABEL = {
   simulando: 'SIMULANDO…',
 };
 
-export default function SimularPanel({ features }) {
-  const { token } = useAuth();
-  const { scenario, save, setResultado } = useScenario(); // save(patch) del contexto
-  const { estado, progreso, resultado, error, simular, cancelar } = useSimulacion({
-    token,
-    scenario,
-    features,
-    nombreProyectoLocal: scenario.name,
-    save,
-  });
+import { useSimulacionContext } from '../../context/SimulacionContext';
+
+export default function SimularPanel() {
+  const { scenario } = useScenario();
+  const { estado, progreso, mensaje, resultado, error, simular, cancelar, running } = useSimulacionContext();
 
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState(null); // resultado real o el mock, lo que se esté mostrando
 
+<<<<<<< HEAD
   // save() cambia de identidad en cada edición del escenario (su useCallback
   // depende de `scenario`), así que este efecto se vuelve a disparar por
   // cosas que no son "se completó una simulación". Esta referencia evita
@@ -125,13 +121,17 @@ export default function SimularPanel({ features }) {
       resultadoGuardadoRef.current = resultado;
       setResultado(resultado);
       save({ ultimoResultado: resultado });
+=======
+  // Al completarse de verdad, abre el modal automáticamente con los resultados.
+  useEffect(() => {
+    if (estado === 'completado' && resultado) {
+>>>>>>> prueba
       setModalData(resultado);
       setShowModal(true);
     }
-  }, [estado, resultado, setResultado, save]);
+  }, [estado, resultado]);
 
-  const isSaved = Boolean(scenario.projectId);
-  const running = estado === 'sincronizando' || estado === 'conectando' || estado === 'simulando';
+  const isSaved = Boolean(scenario.projectId || scenario.proyecto_id);
 
   if (!isSaved) return null; // nada que simular hasta que exista un escenario guardado
 
@@ -151,7 +151,15 @@ export default function SimularPanel({ features }) {
             <div style={progressFillStyle(progreso)} />
           </div>
           <div style={statusStyle('ok')}>
-            {ESTADO_LABEL[estado] ?? '// PROCESANDO…'} {progreso > 0 ? `${progreso}%` : ''}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, marginBottom: 4 }}>
+              <span>{ESTADO_LABEL[estado] ?? '// PROCESANDO…'}</span>
+              <span>{progreso}%</span>
+            </div>
+            {mensaje && (
+              <div style={{ fontSize: 10.5, color: '#e0f8ff', wordBreak: 'break-word', marginTop: 4 }}>
+                {'>'} {mensaje}
+              </div>
+            )}
           </div>
           <button style={{ ...buttonStyle(false, 'magenta'), marginTop: 8 }} onClick={cancelar}>
             CANCELAR
@@ -159,7 +167,7 @@ export default function SimularPanel({ features }) {
         </>
       )}
 
-      {estado === 'error' && <div style={statusStyle('error')}>{error}</div>}
+      {estado === 'error' && <div style={statusStyle('error')}>{error || mensaje}</div>}
 
       {!running && scenario.ultimoResultado && (
         <button style={linkStyle} onClick={() => { setModalData(scenario.ultimoResultado); setShowModal(true); }}>

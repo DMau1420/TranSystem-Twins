@@ -9,7 +9,7 @@ const SYS_CORE = {
   ambar: '#ffb020',
 };
 
-// ⚠️ Id estable de cada calle: el popup nunca mostraba un campo de id, así
+//  Id estable de cada calle: el popup nunca mostraba un campo de id, así
 // que esto es un supuesto (coincide con "edge_id" del README). Si el campo
 // real se llama distinto, ajusta SOLO esta función — todo lo demás ya queda
 // enganchado igual.

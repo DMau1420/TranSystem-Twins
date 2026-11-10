@@ -50,15 +50,12 @@ export function useScenarioSaver() {
 
         await save({ projectId, name, features });
 
-        // Marca el proyecto como reciente; si su nombre sigue siendo automático,
-        // lo actualiza con la ubicación actual (deja de hacerlo cuando el usuario lo renombra).
-        const project = (await listProjects()).find((p) => p.id === projectId);
-        if (project) {
-          await saveProject(
-            project.autoNamed
-              ? { ...project, name: autoProjectName(features) }
-              : project
-          );
+        // Solo actualiza el nombre del proyecto si sigue siendo automático
+        if (!targetProjectId) {
+          const project = (await listProjects()).find((p) => p.id === projectId);
+          if (project?.autoNamed) {
+            await saveProject({ ...project, name: autoProjectName(features) });
+          }
         }
 
         setSaveStatus('saved');
@@ -93,8 +90,10 @@ export function useAutoSave(features) {
     // Un escenario nuevo solo se crea cuando ya hay algo marcado
     if (!scenario.projectId && total === 0) return undefined;
 
-    const timer = setTimeout(() => saveNow(features), AUTOSAVE_DELAY_MS);
+    const timer = setTimeout(() => {
+      saveNow(features);
+    }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSave, changed, dirty, sig, scenario.projectId, total, saveNow]);
+  }, [autoSave, changed, dirty, sig, scenario.projectId, total]);
 }

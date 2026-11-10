@@ -10,6 +10,11 @@ import SearchBar from './components/SearchBar';
 import Sidebar from './components/sidebar/Sidebar';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+<<<<<<< HEAD
+=======
+import { ProyectoProvider } from './context/ProyectoContext';
+import { SimulacionProvider } from './context/SimulacionContext';
+>>>>>>> prueba
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,6 +51,7 @@ function AppLayout() {
     <MapThemeProvider>
       <MapDataProvider>
         <ScenarioProvider>
+<<<<<<< HEAD
           <ResumeActiveScenario />
           <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
             <Sidebar
@@ -66,6 +72,30 @@ function AppLayout() {
               <MapDataPanel />
             </div>
           </div>
+=======
+          <ProyectoProvider>
+            <SimulacionProvider>
+              <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                <Sidebar
+                  active="mapa"
+                  onNavigate={(id) => {
+                    if (id === 'perfil') return; // ajusta cuando exista la página de perfil
+                    console.log('nav ->', id);
+                  }}
+                  user={{
+                    name: user?.apodo || user?.nombre || user?.name || user?.username || 'Invitado',
+                    role: user?.rol ?? user?.role ?? 'VIEWER',
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                  <MapContainer />
+                  <SearchBar />
+                  <MapDataPanel />
+                </div>
+              </div>
+            </SimulacionProvider>
+          </ProyectoProvider>
+>>>>>>> prueba
         </ScenarioProvider>
       </MapDataProvider>
     </MapThemeProvider>

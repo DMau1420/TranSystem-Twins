@@ -21,19 +21,19 @@ async def lifespan(app: FastAPI):
     - Startup : lanza el simulador de vehículos en background.
     - Shutdown: cancela el simulador limpiamente.
     """
-    logger.info("🚀 Iniciando TranSystem Twins API...")
+    logger.info(" Iniciando TranSystem Twins API...")
 
     simulador_task = asyncio.create_task(iniciar_simulador())
-    logger.info("🚦 Simulador de vehículos iniciado en background.")
+    logger.info(" Simulador de vehículos iniciado en background.")
 
     yield  # La app corre aquí
 
-    logger.info("🛑 Apagando simulador de vehículos...")
+    logger.info(" Apagando simulador de vehículos...")
     simulador_task.cancel()
     try:
         await simulador_task
     except asyncio.CancelledError:
-        logger.info("✅ Simulador detenido correctamente.")
+        logger.info(" Simulador detenido correctamente.")
 
 
 app = FastAPI(title="TranSystem Twins API", lifespan=lifespan)

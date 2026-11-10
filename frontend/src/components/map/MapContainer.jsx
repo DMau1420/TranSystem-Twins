@@ -27,8 +27,15 @@ import { reverseGeocode } from '../../utils/geocoding';
 import { sysCore } from '../../styles/sysCore';
 import RoadNetworkLayer from './RoadNetworkLayer';
 import SumoNetworkLayer from './SumoNetworkLayer';
+<<<<<<< HEAD
 import MapLegend from './MapLegend';
 import RoadEditorPanel from '../editor/RoadEditorPanel';
+=======
+import { useProyecto } from '../../context/ProyectoContext';
+import EdicionPanel from './EdicionPanel';
+import SimularBoton from './SimularBoton';
+import BottomProgressBar from './BottomProgressBar';
+>>>>>>> prueba
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -264,8 +271,18 @@ export const MapContainer = () => {
         <RoadNetworkLayer visible={showRoadNetwork} onLoadingChange={setRoadNetworkLoading} />
         <SumoNetworkLayer visible={showSumoNetwork} onSelectFeature={select} selectedId={selection?.id} />
       </LeafletMap>
+<<<<<<< HEAD
       <MapLegend visible={showSumoNetwork} />
       <RoadEditorPanel />
+=======
+
+      {capaSumoVisible && <SimularBoton />}
+      <BottomProgressBar />
+
+      {capaSumoVisible && seleccion && (
+        <EdicionPanel seleccion={seleccion} onClose={() => setSeleccion(null)} />
+      )}
+>>>>>>> prueba
     </div>
   );
 };

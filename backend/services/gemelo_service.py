@@ -37,11 +37,11 @@ historial_vehiculos: list[dict] = []
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
     """Callback al establecer conexión con el broker."""
     if reason_code == 0:
-        logger.info("✅ Conectado al broker MQTT en %s:%d", BROKER_HOST, BROKER_PORT)
+        logger.info(" Conectado al broker MQTT en %s:%d", BROKER_HOST, BROKER_PORT)
         client.subscribe(TOPIC)
-        logger.info("📡 Suscrito al tópico: %s", TOPIC)
+        logger.info(" Suscrito al tópico: %s", TOPIC)
     else:
-        logger.error("❌ Falló la conexión. Código de razón: %s", reason_code)
+        logger.error(" Falló la conexión. Código de razón: %s", reason_code)
 
 
 def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
@@ -58,19 +58,19 @@ def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
         historial_vehiculos.append(registro)
 
         logger.info(
-            "🚗 Vehículos recibidos: %d  |  Timestamp: %s  |  Tópico: %s",
+            " Vehículos recibidos: %d  |  Timestamp: %s  |  Tópico: %s",
             vehiculos,
             timestamp,
             msg.topic,
         )
 
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.warning("⚠️  Mensaje inválido recibido: %s — Error: %s", msg.payload, exc)
+        logger.warning("  Mensaje inválido recibido: %s — Error: %s", msg.payload, exc)
 
 
 def on_disconnect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
     """Callback al desconectarse del broker."""
-    logger.warning("🔌 Desconectado del broker. Código: %s", reason_code)
+    logger.warning(" Desconectado del broker. Código: %s", reason_code)
 
 
 # ── Función principal ──────────────────────────────────────────────────────────
@@ -87,16 +87,16 @@ def iniciar_gemelo():
     client.on_message = on_message
     client.on_disconnect = on_disconnect
 
-    logger.info("🔄 Conectando al broker MQTT en %s:%d ...", BROKER_HOST, BROKER_PORT)
+    logger.info(" Conectando al broker MQTT en %s:%d ...", BROKER_HOST, BROKER_PORT)
     client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
 
     try:
         client.loop_forever()
     except KeyboardInterrupt:
-        logger.info("🛑 Gemelo detenido manualmente.")
+        logger.info(" Gemelo detenido manualmente.")
     finally:
         client.disconnect()
-        logger.info("📊 Total de registros almacenados: %d", len(historial_vehiculos))
+        logger.info(" Total de registros almacenados: %d", len(historial_vehiculos))
 
 
 if __name__ == "__main__":

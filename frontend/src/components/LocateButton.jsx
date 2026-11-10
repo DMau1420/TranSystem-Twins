@@ -60,7 +60,7 @@ export const LocateButton = () => {
         disabled={loading}
         title="Ir a mi ubicación actual"
       >
-        {loading ? '…' : '📍'}
+        {loading ? '…' : ''}
       </button>
       {error && (
         <div

@@ -292,6 +292,12 @@ export const MapDataPanel = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    const handleOpen = () => setOpen(true);
+    window.addEventListener('open-map-data-panel', handleOpen);
+    return () => window.removeEventListener('open-map-data-panel', handleOpen);
+  }, []);
+
   return (
     <>
       {!open && (

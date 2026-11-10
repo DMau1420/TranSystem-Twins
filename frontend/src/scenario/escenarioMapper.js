@@ -4,7 +4,7 @@
 // tu localStorage) y el escenario del BACKEND REAL (zona_geom,
 // modificaciones_edges, modificaciones_semaforos, demanda_vehicular).
 //
-// ⚠️ SUPUESTOS que hay que confirmar con el equipo (el README no especifica
+//  SUPUESTOS que hay que confirmar con el equipo (el README no especifica
 // el shape exacto de CreateEscenario/CreateProyecto; revisa /docs o pregunta
 // a Mau si algo de esto no cuadra):
 //   - zona_geom se manda como GeoJSON Polygon plano (no como Feature envuelto).
@@ -17,7 +17,7 @@
 //     3600 (1 hora) hasta que se agregue un campo en el editor.
 
 const DEFAULT_DURACION_SEGUNDOS = 3600;
-// ⚠️ El Swagger real (ver scenario/simulacion.md) muestra el escenario de
+//  El Swagger real (ver scenario/simulacion.md) muestra el escenario de
 // prueba con demanda_sintetica como ARRAY de {vehiculos_por_hora, direccion},
 // no un solo demanda_vehicular. Mientras no haya POST /escenarios/crear real
 // para confirmarlo, mandamos los dos formatos: el simple (demanda_vehicular,

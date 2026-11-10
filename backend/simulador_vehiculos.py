@@ -63,7 +63,7 @@ async def bucle_simulacion(client: mqtt.Client) -> None:
 
         client.publish(TOPIC, payload, qos=1)
 
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚗 {vehiculos} vehículo(s) — esperando {intervalo:.1f}s")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}]  {vehiculos} vehículo(s) — esperando {intervalo:.1f}s")
 
         await asyncio.sleep(intervalo)
 

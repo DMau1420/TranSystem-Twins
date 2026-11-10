@@ -9,16 +9,18 @@ SUMO_WS_URL_LOCAL = "ws://localhost:8000"
 class SumoService:
     @staticmethod
     async def _send_ws_request(payload: dict):
-        try:
-            async with websockets.connect(SUMO_WS_URL) as ws:
-                await ws.send(json.dumps(payload))
-                response = await ws.recv()
-                return json.loads(response)
-        except Exception:
-            async with websockets.connect(SUMO_WS_URL_LOCAL) as ws:
-                await ws.send(json.dumps(payload))
-                response = await ws.recv()
-                return json.loads(response)
+        for target_url in [SUMO_WS_URL, SUMO_WS_URL_LOCAL]:
+            try:
+                async with websockets.connect(target_url) as ws:
+                    await ws.send(json.dumps(payload))
+                    async for response in ws:
+                        data = json.loads(response)
+                        if data.get("action") == "progress":
+                            continue
+                        return data
+            except Exception:
+                continue
+        return {"error": "No se pudo conectar al servicio SUMO"}
 
     @staticmethod
     async def simular(websocket: WebSocket):
@@ -29,42 +31,75 @@ class SumoService:
                 try:
                     payload = json.loads(data)
                 except json.JSONDecodeError:
-                    await websocket.send_json({"error": "Invalid JSON format"})
+                    await websocket.send_json({"error": "Invalid JSON format", "message": "Invalid JSON format"})
                     continue
 
-                await websocket.send_json({"status": "iniciando", "progress": 0})
+                await websocket.send_json({
+                    "status": "iniciando",
+                    "progress": 5,
+                    "message": "Conectando al microservicio SUMO..."
+                })
                 
-                try:
-                    await websocket.send_json({"status": "simulando", "progress": 50})
-                    
-                    req_payload = {"action": "simular", "payload": payload}
+                req_payload = {"action": "simular", "payload": payload}
+                connected = False
+
+                for target_url in [SUMO_WS_URL, SUMO_WS_URL_LOCAL]:
                     try:
-                        async with websockets.connect(SUMO_WS_URL) as ws:
+                        async with websockets.connect(target_url) as ws:
+                            connected = True
                             await ws.send(json.dumps(req_payload))
-                            res = await ws.recv()
-                            resultado_data = json.loads(res)
+                            
+                            async for raw_res in ws:
+                                res = json.loads(raw_res)
+                                action = res.get("action")
+
+                                if action == "progress":
+                                    await websocket.send_json({
+                                        "status": "simulando",
+                                        "progress": res.get("progress", 50),
+                                        "message": res.get("message", "Simulando..."),
+                                        "detail": res.get("message", "Simulando...")
+                                    })
+                                elif action == "simular_response" or "data" in res:
+                                    resultado = res.get("data", {})
+                                    await websocket.send_json({
+                                        "status": "completado",
+                                        "progress": 100,
+                                        "message": res.get("message", "Simulación completada con éxito"),
+                                        "detail": "Simulación completada",
+                                        "resultado": resultado
+                                    })
+
+                                    import httpx
+                                    try:
+                                        esc_id = payload.get("escenario_id")
+                                        if esc_id:
+                                            async with httpx.AsyncClient() as client:
+                                                await client.post(
+                                                    "http://localhost:8000/resultado-sumo",
+                                                    json={"escenario_id": esc_id, **resultado}
+                                                )
+                                    except Exception:
+                                        pass
+                                    break
+                                elif "error" in res:
+                                    await websocket.send_json({
+                                        "status": "error",
+                                        "detail": res["error"],
+                                        "message": res["error"]
+                                    })
+                                    break
+                        if connected:
+                            break
                     except Exception:
-                        async with websockets.connect(SUMO_WS_URL_LOCAL) as ws:
-                            await ws.send(json.dumps(req_payload))
-                            res = await ws.recv()
-                            resultado_data = json.loads(res)
-                    
-                    if "error" in resultado_data:
-                        await websocket.send_json({"status": "error", "detail": resultado_data["error"]})
-                    else:
-                        resultado = resultado_data.get("data", {})
-                        await websocket.send_json({"status": "completado", "progress": 100, "resultado": resultado})
-                        
-                        # Guardar el resultado (esto es de la implementacion original, podemos hacer request via httpx aqui
-                        # porque back->back es HTTP normal)
-                        import httpx
-                        try:
-                            async with httpx.AsyncClient() as client:
-                                await client.post("http://localhost:8000/resultado-sumo", json=resultado)
-                        except httpx.RequestError:
-                            pass
-                except Exception as e:
-                    await websocket.send_json({"status": "error", "detail": f"Error al simular en SUMO: {str(e)}"})
+                        continue
+
+                if not connected:
+                    await websocket.send_json({
+                        "status": "error",
+                        "detail": "No se pudo conectar al microservicio SUMO (ws://sumo:8000).",
+                        "message": "No se pudo conectar al microservicio SUMO"
+                    })
 
         except WebSocketDisconnect:
             pass

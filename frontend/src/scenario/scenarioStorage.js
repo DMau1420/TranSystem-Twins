@@ -24,16 +24,158 @@ export async function listScenarios({ projectId } = {}) {
   return filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+export function geomToFeatures(geom) {
+  if (!geom) return { points: [], routes: [], zones: [] };
+  let polygon = geom;
+  if (geom.type === 'Feature' && geom.geometry) polygon = geom.geometry;
+  if (polygon.type === 'Polygon' && Array.isArray(polygon.coordinates)) {
+    const coords = polygon.coordinates[0]?.map((pt) => {
+      if (Array.isArray(pt)) return { lat: pt[1], lng: pt[0] };
+      return pt;
+    }) || [];
+    if (coords.length > 0) {
+      return {
+        points: [],
+        routes: [],
+        zones: [{
+          id: 'zone_primary',
+          coordinates: coords,
+          geoJson: polygon,
+          vehiculos_por_hora: 100,
+        }],
+      };
+    }
+  }
+  return { points: [], routes: [], zones: [] };
+}
+
+export function indexarEdges(mods = []) {
+  const edges = {};
+  if (Array.isArray(mods)) {
+    mods.forEach((m) => {
+      if (m && m.edge_id) {
+        edges[m.edge_id] = {
+          lanes: m.carriles,
+          maxspeed: m.velocidad_max,
+        };
+      }
+    });
+  }
+  return edges;
+}
+
+export function indexarJunctions(mods = []) {
+  const junctions = {};
+  if (Array.isArray(mods)) {
+    mods.forEach((m) => {
+      if (m && m.tls_id) {
+        junctions[m.tls_id] = {
+          tls: { phases: m.fases || [] },
+        };
+      }
+    });
+  }
+  return junctions;
+}
+
+export function normalizeScenario(s, projectId = null) {
+  if (!s) return null;
+  const pId = projectId ?? s.proyecto_id ?? s.projectId ?? null;
+  const edges = indexarEdges(s.modificaciones_edges);
+  const junctions = indexarJunctions(s.modificaciones_semaforos);
+  const edits = s.edits ? { edges: { ...edges, ...s.edits.edges }, junctions: { ...junctions, ...s.edits.junctions } } : { edges, junctions };
+  const features = s.features && (s.features.points || s.features.routes || s.features.zones)
+    ? s.features
+    : geomToFeatures(s.zona_geom);
+
+  return {
+    id: s.id,
+    projectId: pId,
+    proyecto_id: pId,
+    name: s.nombre || s.name || 'Escenario 1',
+    version: 1,
+    createdAt: s.fecha_creacion || s.createdAt || new Date().toISOString(),
+    updatedAt: s.fecha_creacion || s.updatedAt || new Date().toISOString(),
+    area: s.zona_geom || s.area || null,
+    features,
+    network: s.network || { source: 'osm', importedAt: null },
+    backend: { proyectoId: pId, escenarioId: s.id },
+    demandaVehicular: s.demanda_vehicular ?? s.demandaVehicular ?? 100,
+    duracionSegundos: s.duracion_segundos ?? s.duracionSegundos ?? 3600,
+    ultimoResultado: s.resultado ?? s.ultimoResultado ?? null,
+    edits,
+  };
+}
+
 export async function getScenario(id) {
+<<<<<<< HEAD
   return readAll()[id] ?? null;
+=======
+  const token = getToken();
+  if (token) {
+    try {
+      const res = await fetch(`${API_BASE}/escenarios/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const s = await res.json();
+        return normalizeScenario(s);
+      }
+    } catch (e) {
+      console.warn("Fallo getScenario backend", e);
+    }
+  }
+  const local = readAll()[id];
+  return local ? normalizeScenario(local) : null;
+>>>>>>> prueba
 }
 
 export async function saveScenario(scenario) {
   const saved = { ...scenario, updatedAt: new Date().toISOString() };
+<<<<<<< HEAD
+=======
+  if (token) {
+    try {
+      let res;
+      const isNew = !scenario.id || typeof scenario.id === 'string';
+      let zonaGeom = saved.zona_geom;
+      if (!zonaGeom && saved.features?.zones?.[0]?.geoJson) {
+        zonaGeom = saved.features.zones[0].geoJson;
+      }
+      const payload = {
+        nombre: saved.name || saved.nombre,
+        zona_geom: zonaGeom || null,
+        proyecto_id: saved.projectId || saved.proyecto_id,
+        demanda_vehicular: saved.demandaVehicular ?? 100,
+        duracion_segundos: saved.duracionSegundos ?? 3600,
+      };
+      
+      if (isNew) {
+        res = await fetch(`${API_BASE}/escenarios/crear`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch(`${API_BASE}/escenarios/modificar/${saved.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+      }
+      
+      if (res.ok) {
+        const s = await res.json();
+        return normalizeScenario({ ...saved, ...s });
+      }
+    } catch (e) {
+      console.warn("Fallo saveScenario backend", e);
+    }
+  }
+
+>>>>>>> prueba
   const all = readAll();
   all[saved.id] = saved;
   writeAll(all);
-  return saved;
+  return normalizeScenario(saved);
 }
 
 export async function deleteScenario(id) {
