@@ -71,9 +71,14 @@ export function parseMaxspeed(raw) {
 // Valor efectivo = edición del usuario si existe, si no el valor base de la red.
 // Ajusta los nombres de propiedades a lo que traiga tu GeoJSON (/api/red u Overpass).
 export function effectiveEdge(baseProps = {}, edit = {}) {
+  // velocidad_max/carriles: nombres reales de SumoNetworkLayer (/api/red).
+  // maxspeed/speed/lanes/numLanes quedan de respaldo por si en algún punto
+  // se lee directo de OSM crudo en vez de la red ya convertida a SUMO.
+  const baseSpeed = baseProps.velocidad_max ?? baseProps.maxspeed ?? baseProps.speed;
+  const baseLanes = baseProps.carriles ?? baseProps.lanes ?? baseProps.numLanes;
   return {
-    maxspeed: edit.maxspeed ?? parseMaxspeed(baseProps.maxspeed ?? baseProps.speed),
-    lanes: edit.lanes ?? (Number(baseProps.lanes ?? baseProps.numLanes) || null),
+    maxspeed: edit.maxspeed ?? parseMaxspeed(baseSpeed) ?? (Number(baseSpeed) || null),
+    lanes: edit.lanes ?? (Number(baseLanes) || null),
     edited: Object.keys(edit).length > 0,
   };
 }

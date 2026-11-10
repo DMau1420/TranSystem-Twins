@@ -1,7 +1,7 @@
 // src/components/editor/SimularPanel.jsx
 // Va debajo de DemandaPanel/SaveScenarioForm en MapDataPanel. Solo tiene
 // sentido una vez que el escenario ya se guardó al menos una vez.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { sysCore } from '../../styles/sysCore';
 import { useAuth } from '../../context/AuthContext'; // ⚠️ mismo caveat de path que en AccountMenu/ProjectsPanel
 import { useScenario } from '../../scenario/ScenarioContext';
@@ -109,10 +109,20 @@ export default function SimularPanel({ features }) {
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState(null); // resultado real o el mock, lo que se esté mostrando
 
+  // save() cambia de identidad en cada edición del escenario (su useCallback
+  // depende de `scenario`), así que este efecto se vuelve a disparar por
+  // cosas que no son "se completó una simulación". Esta referencia evita
+  // repetir el guardado para el MISMO resultado — antes, cualquier cambio
+  // posterior (hasta crear un escenario nuevo) volvía a guardar el
+  // resultado viejo encima del escenario que estuviera activo en ese
+  // momento. Era el bug de los "escenarios fantasma" sin proyecto/puntos.
+  const resultadoGuardadoRef = useRef(null);
+
   // Al completarse de verdad, guarda el resultado en el escenario (para "ver
   // último resultado" después) y abre el modal automáticamente.
   useEffect(() => {
-    if (estado === 'completado' && resultado) {
+    if (estado === 'completado' && resultado && resultado !== resultadoGuardadoRef.current) {
+      resultadoGuardadoRef.current = resultado;
       setResultado(resultado);
       save({ ultimoResultado: resultado });
       setModalData(resultado);

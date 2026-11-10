@@ -22,13 +22,13 @@ import LayersPanel from './LayersPanel';
 
 import { useMapData } from '../../context/MapDataContext';
 import { useMapTheme } from '../../context/MapThemeContext';
+import { useScenario } from '../../scenario/ScenarioContext';
 import { reverseGeocode } from '../../utils/geocoding';
 import { sysCore } from '../../styles/sysCore';
 import RoadNetworkLayer from './RoadNetworkLayer';
 import SumoNetworkLayer from './SumoNetworkLayer';
-import { useProyecto } from '../../context/ProyectoContext';
-import EdicionPanel from './EdicionPanel';
-import SimularBoton from './SimularBoton';
+import MapLegend from './MapLegend';
+import RoadEditorPanel from '../editor/RoadEditorPanel';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -231,9 +231,9 @@ const ZONE_TOOLTIP_CSS = `
 export const MapContainer = () => {
   const [showRoadNetwork, setShowRoadNetwork] = useState(false);
   const [roadNetworkLoading, setRoadNetworkLoading] = useState(false);
-  const [seleccion, setSeleccion] = useState(null);
-  const { capaSumoVisible, setCapaSumoVisible } = useProyecto();
+  const [showSumoNetwork, setShowSumoNetwork] = useState(false);
   const { mapStyle } = useMapTheme(); // 'light' | 'dark' — controlado desde el Sidebar
+  const { selection, select } = useScenario(); // selección de calle/semáforo para el editor vial
 
   return (
     <div
@@ -245,8 +245,8 @@ export const MapContainer = () => {
         showRoadNetwork={showRoadNetwork}
         onToggleRoadNetwork={() => setShowRoadNetwork((prev) => !prev)}
         roadNetworkLoading={roadNetworkLoading}
-        showSumoNetwork={capaSumoVisible}
-        onToggleSumoNetwork={() => setCapaSumoVisible((prev) => !prev)}
+        showSumoNetwork={showSumoNetwork}
+        onToggleSumoNetwork={() => setShowSumoNetwork((prev) => !prev)}
       />
       <LeafletMap
         center={DEFAULT_CENTER}
@@ -262,14 +262,10 @@ export const MapContainer = () => {
         <FlyToScenario />
         <InvalidateOnResize />
         <RoadNetworkLayer visible={showRoadNetwork} onLoadingChange={setRoadNetworkLoading} />
-        <SumoNetworkLayer visible={capaSumoVisible} onSelect={setSeleccion} />
+        <SumoNetworkLayer visible={showSumoNetwork} onSelectFeature={select} selectedId={selection?.id} />
       </LeafletMap>
-
-      {capaSumoVisible && <SimularBoton />}
-
-      {capaSumoVisible && seleccion && (
-        <EdicionPanel seleccion={seleccion} onClose={() => setSeleccion(null)} />
-      )}
+      <MapLegend visible={showSumoNetwork} />
+      <RoadEditorPanel />
     </div>
   );
 };
