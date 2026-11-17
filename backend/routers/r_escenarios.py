@@ -1,9 +1,16 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.md_user import User
-from schemas.sc_escenarios import CreateEscenario, EscenarioResponse, UpdateEscenario, ModificarEdge, ModificarSemaforo
+from schemas.sc_escenarios import (
+    CreateEscenario,
+    DuplicarEscenario,
+    EscenarioResponse,
+    ModificarEdge,
+    ModificarSemaforo,
+    UpdateEscenario,
+)
 from services.auth_service import AuthService
 from services.escenario_service import EscenarioService
 
@@ -106,3 +113,23 @@ def patch_edge(escenario_id: int, edge_id: str, data: ModificarEdge, db: Session
 def patch_semaforo(escenario_id: int, tls_id: str, data: ModificarSemaforo, db: Session = Depends(get_db),
         u: User = Depends(AuthService.obtener_usuario_actual)):
     return EscenarioService.modificar_semaforo(db, escenario_id, tls_id, data, u.id)
+
+
+@router.post(
+    "/{escenario_id}/duplicar",
+    response_model=EscenarioResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Duplicar un escenario como alternativa",
+)
+def duplicar_escenario(
+    escenario_id: int,
+    data: DuplicarEscenario | None = Body(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.obtener_usuario_actual),
+):
+    return EscenarioService.duplicar_escenario(
+        db=db,
+        escenario_id=escenario_id,
+        usuario_id=current_user.id,
+        nombre=data.nombre if data else None,
+    )

@@ -1,5 +1,9 @@
+import json
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from core.database import session_local
 from core.security import decode_access_token
@@ -87,6 +91,23 @@ def test_login_invalid_credentials():
     assert response.status_code == 401
 
 
+def test_register_duplicate_email():
+    response = client.post("/auth/register", json=TEST_USER)
+    assert response.status_code == 400
+
+
+def test_login_form_urlencoded():
+    response = client.post(
+        "/auth/login",
+        data={
+            "username": TEST_USER["correo"],
+            "password": TEST_USER["password"],
+        },
+    )
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+
 def test_update_user_data():
     login_data = {
         "correo": TEST_USER["correo"],
@@ -140,11 +161,29 @@ def test_update_password_and_login():
 
 
 def test_unauthorized_operations():
+    unauth_me = client.get("/auth/me")
+    assert unauth_me.status_code == 401
+
     unauth_patch = client.patch("/auth/me", json={"nombre": "Hacker"})
     assert unauth_patch.status_code == 401
 
     unauth_delete = client.delete("/auth/me")
     assert unauth_delete.status_code == 401
+
+
+def test_get_current_user_and_put_me():
+    headers = get_auth_headers()
+    me_res = client.get("/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["correo"] == TEST_USER["correo"]
+
+    put_res = client.put(
+        "/auth/me",
+        json={"apodo": "snowfluff put"},
+        headers=headers,
+    )
+    assert put_res.status_code == 200
+    assert put_res.json()["apodo"] == "snowfluff put"
 
 
 # ====================================
@@ -426,6 +465,126 @@ def test_eliminar_escenario():
     assert get_res.status_code == 404
 
 
+def test_patch_infraestructura_edge():
+    headers = get_auth_headers()
+    res = client.patch(
+        f"/escenarios/{created_escenario_id}/infraestructura/edge_101",
+        json={"carriles": 3, "velocidad_max": 60.0},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    mods = res.json()["modificaciones_edges"]
+    assert mods == [{"edge_id": "edge_101", "carriles": 3, "velocidad_max": 60.0}]
+
+    # Reemplazar el mismo edge_id no duplica la entrada
+    res_replace = client.patch(
+        f"/escenarios/{created_escenario_id}/infraestructura/edge_101",
+        json={"carriles": 4, "velocidad_max": 80.0},
+        headers=headers,
+    )
+    assert res_replace.status_code == 200
+    assert res_replace.json()["modificaciones_edges"] == [
+        {"edge_id": "edge_101", "carriles": 4, "velocidad_max": 80.0}
+    ]
+
+    # Validación de rangos (carriles fuera de [1..10])
+    res_invalid = client.patch(
+        f"/escenarios/{created_escenario_id}/infraestructura/edge_101",
+        json={"carriles": 15, "velocidad_max": 60.0},
+        headers=headers,
+    )
+    assert res_invalid.status_code == 422
+
+    res_404 = client.patch(
+        "/escenarios/999999/infraestructura/edge_101",
+        json={"carriles": 2, "velocidad_max": 50.0},
+        headers=headers,
+    )
+    assert res_404.status_code == 404
+
+    res_401 = client.patch(
+        f"/escenarios/{created_escenario_id}/infraestructura/edge_101",
+        json={"carriles": 2, "velocidad_max": 50.0},
+    )
+    assert res_401.status_code == 401
+
+
+def test_patch_semaforo_tls():
+    headers = get_auth_headers()
+    payload = {"fases": [{"indice": 0, "duracion": 35, "estado": "GGrr"}]}
+    res = client.patch(
+        f"/escenarios/{created_escenario_id}/semaforo/tls_202",
+        json=payload,
+        headers=headers,
+    )
+    assert res.status_code == 200
+    mods = res.json()["modificaciones_semaforos"]
+    assert mods == [{"tls_id": "tls_202", "fases": [{"indice": 0, "duracion": 35, "estado": "GGrr"}]}]
+
+    # Validación de rangos (duracion fuera de [1..300])
+    res_invalid = client.patch(
+        f"/escenarios/{created_escenario_id}/semaforo/tls_202",
+        json={"fases": [{"indice": 0, "duracion": 500, "estado": "GGrr"}]},
+        headers=headers,
+    )
+    assert res_invalid.status_code == 422
+
+    res_404 = client.patch(
+        "/escenarios/999999/semaforo/tls_202",
+        json=payload,
+        headers=headers,
+    )
+    assert res_404.status_code == 404
+
+    res_401 = client.patch(
+        f"/escenarios/{created_escenario_id}/semaforo/tls_202",
+        json=payload,
+    )
+    assert res_401.status_code == 401
+
+
+def test_duplicar_escenario():
+    headers = get_auth_headers()
+    orig_res = client.get(f"/escenarios/{created_escenario_id}", headers=headers)
+    assert orig_res.status_code == 200
+    orig = orig_res.json()
+
+    # Duplicado con nombre por defecto
+    dup_default = client.post(
+        f"/escenarios/{created_escenario_id}/duplicar",
+        headers=headers,
+    )
+    assert dup_default.status_code == 201
+    copia = dup_default.json()
+    assert copia["id"] != orig["id"]
+    assert copia["proyecto_id"] == orig["proyecto_id"]
+    assert copia["nombre"] == f"{orig['nombre']} (copia)"
+    assert copia["modificaciones_edges"] == orig["modificaciones_edges"]
+    assert copia["modificaciones_semaforos"] == orig["modificaciones_semaforos"]
+    assert copia["demanda_vehicular"] == orig["demanda_vehicular"]
+    assert copia["duracion_segundos"] == orig["duracion_segundos"]
+    assert copia["resultado"] is None
+
+    # Duplicado con nombre personalizado
+    dup_custom = client.post(
+        f"/escenarios/{created_escenario_id}/duplicar",
+        json={"nombre": "Alternativa Semáforo Optimizado"},
+        headers=headers,
+    )
+    assert dup_custom.status_code == 201
+    assert dup_custom.json()["nombre"] == "Alternativa Semáforo Optimizado"
+
+    # Error 404 y 401
+    assert (
+        client.post("/escenarios/999999/duplicar", headers=headers).status_code == 404
+    )
+    assert client.post(f"/escenarios/{created_escenario_id}/duplicar").status_code == 401
+
+    # Limpieza de copias
+    client.delete(f"/escenarios/{copia['id']}", headers=headers)
+    client.delete(f"/escenarios/{dup_custom.json()['id']}", headers=headers)
+
+
 # ====================================
 # Tests para Resultados
 # ====================================
@@ -442,7 +601,7 @@ def test_crear_resultado_formato_simulador():
         "tiempo_promedio_recorrido": 174.3684210526316,
         "espera_promedio": 18.694736842105264,
     }
-    response = client.post("/resultados/crear", json=payload, headers=headers)
+    response = client.post("/resultados/registrar", json=payload, headers=headers)
     assert response.status_code == 201
     data = response.json()
     assert "id" in data
@@ -493,6 +652,184 @@ def test_eliminar_resultado():
 
     get_res = client.get(f"/resultados/{created_resultado_id}", headers=headers)
     assert get_res.status_code == 404
+
+
+def test_resultados_no_autorizados_y_no_existentes():
+    headers = get_auth_headers()
+    assert client.get("/resultados/").status_code == 401
+    assert (
+        client.post(
+            "/resultados/registrar",
+            json={"escenario_id": created_escenario_id, "vehiculos_atendidos": 10},
+        ).status_code
+        == 401
+    )
+    assert client.get("/resultados/999999").status_code == 401
+    assert client.delete("/resultados/999999").status_code == 401
+
+    assert (
+        client.post(
+            "/resultados/registrar",
+            json={"escenario_id": 999999, "vehiculos_atendidos": 10},
+            headers=headers,
+        ).status_code
+        == 404
+    )
+    assert client.get("/resultados/999999", headers=headers).status_code == 404
+    assert client.delete("/resultados/999999", headers=headers).status_code == 404
+
+
+def test_aislamiento_entre_usuarios():
+    other_user = {
+        "nombre": "Intruder",
+        "correo": "intruder@collective.com",
+        "password": "OtherPassword123",
+    }
+    db = session_local()
+    existing = db.query(User).filter(User.correo == other_user["correo"]).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+    db.close()
+
+    try:
+        reg = client.post("/auth/register", json=other_user)
+        assert reg.status_code == 201
+        login = client.post(
+            "/auth/login",
+            json={"correo": other_user["correo"], "password": other_user["password"]},
+        )
+        other_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        assert client.get(f"/proyectos/{created_proyecto_id}", headers=other_headers).status_code == 404
+        assert client.get(f"/escenarios/{created_escenario_id}", headers=other_headers).status_code == 404
+        assert (
+            client.post(f"/escenarios/{created_escenario_id}/duplicar", headers=other_headers).status_code
+            == 404
+        )
+        assert (
+            client.post(
+                "/resultados/registrar",
+                json={"escenario_id": created_escenario_id, "vehiculos_atendidos": 5},
+                headers=other_headers,
+            ).status_code
+            == 404
+        )
+    finally:
+        db = session_local()
+        u = db.query(User).filter(User.correo == other_user["correo"]).first()
+        if u:
+            db.delete(u)
+            db.commit()
+        db.close()
+
+
+# ====================================
+# Tests para Simulación y WebSocket (CU-07, CU-13)
+# ====================================
+
+def test_simulacion_endpoints_requieren_jwt():
+    assert client.get("/red").status_code == 401
+    assert client.patch("/infraestructura/e1", json={"carriles": 2}).status_code == 401
+    assert client.patch("/semaforo/t1", json={"fases": []}).status_code == 401
+    assert client.get("/resultado").status_code == 401
+    assert client.post("/simular", json={"escenario_id": 1}).status_code == 401
+
+
+def test_simulacion_websocket_rechaza_sin_token_o_invalido():
+    with pytest.raises(WebSocketDisconnect) as exc_no_token:
+        with client.websocket_connect("/ws/simular"):
+            pass
+    assert exc_no_token.value.code == 4001
+
+    with pytest.raises(WebSocketDisconnect) as exc_bad_token:
+        with client.websocket_connect("/ws/simular?token=token_invalido"):
+            pass
+    assert exc_bad_token.value.code == 4001
+
+
+def test_simulacion_rest_y_websocket_con_jwt_mock_sumo():
+    headers = get_auth_headers()
+    token = headers["Authorization"].split(" ", 1)[1]
+    sent_to_sumo = []
+
+    class FakeSumoWS:
+        def __init__(self, responses):
+            self._responses = list(responses)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def send(self, message):
+            sent_to_sumo.append(json.loads(message))
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self._responses:
+                raise StopAsyncIteration
+            return json.dumps(self._responses.pop(0))
+
+    indicadores = {
+        "vehiculos_atendidos": 42,
+        "tiempo_promedio_espera": 11.5,
+        "velocidad_promedio": 32.0,
+        "longitud_max_fila": 18.0,
+    }
+
+    # 1) POST /simular reenvía el token JWT hacia SUMO
+    with patch(
+        "services.sumo_service.websockets.connect",
+        return_value=FakeSumoWS([{"action": "simular_response", "data": indicadores}]),
+    ):
+        res = client.post(
+            "/simular",
+            json={"escenario_id": created_escenario_id},
+            headers=headers,
+        )
+    assert res.status_code == 200
+    assert res.json()["data"] == indicadores
+    assert sent_to_sumo[-1]["payload"]["token"] == token
+
+    # 2) WS /ws/simular?token=... reenvía progreso, token y persiste resultado en BD
+    sent_to_sumo.clear()
+    ws_responses = [
+        {"action": "progress", "progress": 50, "message": "Simulando tráfico..."},
+        {"action": "simular_response", "data": indicadores},
+    ]
+    with patch(
+        "services.sumo_service.websockets.connect",
+        return_value=FakeSumoWS(ws_responses),
+    ):
+        with client.websocket_connect(f"/ws/simular?token={token}") as ws:
+            ws.send_text(json.dumps({"escenario_id": created_escenario_id}))
+            msg1 = ws.receive_json()
+            assert msg1["status"] == "iniciando"
+            assert msg1["progress"] == 5
+
+            msg2 = ws.receive_json()
+            assert msg2["status"] == "simulando"
+            assert msg2["progress"] == 50
+
+            msg3 = ws.receive_json()
+            assert msg3["status"] == "completado"
+            assert msg3["progress"] == 100
+            assert msg3["resultado"] == indicadores
+
+    assert sent_to_sumo[-1]["payload"]["token"] == token
+
+    # Verificar que SumoService persistió el resultado automáticamente en BD
+    res_list = client.get(
+        f"/resultados/?escenario_id={created_escenario_id}",
+        headers=headers,
+    )
+    assert res_list.status_code == 200
+    resultados = res_list.json()
+    assert any(r["vehiculos_atendidos"] == 42 for r in resultados)
 
 
 # ====================================

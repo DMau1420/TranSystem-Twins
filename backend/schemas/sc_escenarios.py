@@ -44,6 +44,10 @@ class ModificarSemaforo(BaseModel):
     fases: list[FaseSemaforo]
 
 
+class DuplicarEscenario(BaseModel):
+    nombre: str | None = None
+
+
 class EscenarioResponse(BaseModel):
     id: int
     proyecto_id: int

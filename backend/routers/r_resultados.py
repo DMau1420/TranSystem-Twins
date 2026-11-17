@@ -26,7 +26,7 @@ def obtener_resultados(
 
 
 @router.post(
-    "/crear",
+    "/registrar",
     response_model=ResultadoResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Crear o registrar un nuevo resultado de simulación",

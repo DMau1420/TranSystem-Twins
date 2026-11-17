@@ -1,8 +1,42 @@
 import json
 from fastapi.testclient import TestClient
+
+from core.database import session_local
 from main import app
+from models.md_user import User
 
 client = TestClient(app)
+
+
+def _get_test_token() -> str:
+    user_data = {
+        "nombre": "SumoTester",
+        "correo": "sumo_ws_test@collective.com",
+        "password": "SumoTestPassword123",
+    }
+    db = session_local()
+    existing = db.query(User).filter(User.correo == user_data["correo"]).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+    db.close()
+
+    client.post("/auth/register", json=user_data)
+    login_res = client.post(
+        "/auth/login",
+        json={"correo": user_data["correo"], "password": user_data["password"]},
+    )
+    return login_res.json()["access_token"]
+
+
+def _cleanup_test_user():
+    db = session_local()
+    existing = db.query(User).filter(User.correo == "sumo_ws_test@collective.com").first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+    db.close()
+
 
 def test_sumo_simulation_websocket():
     # JSON de prueba, aunque el servidor temporal en sumo/server.py
@@ -43,30 +77,30 @@ def test_sumo_simulation_websocket():
         }
     }
 
-    # Nos conectamos al WebSocket expuesto por FastAPI
-    with client.websocket_connect("/ws/simular") as websocket:
-        websocket.send_text(json.dumps(test_payload))
-        
-        # 1. Esperamos confirmación de inicio
-        response_iniciando = websocket.receive_json()
-        assert response_iniciando["status"] == "iniciando"
-        assert response_iniciando["progress"] == 0
+    token = _get_test_token()
+    try:
+        # Nos conectamos al WebSocket autenticado expuesto por FastAPI
+        with client.websocket_connect(f"/ws/simular?token={token}") as websocket:
+            websocket.send_text(json.dumps(test_payload))
 
-        # 2. Esperamos notificación de simulación en proceso
-        response_simulando = websocket.receive_json()
-        assert response_simulando["status"] == "simulando"
-        assert response_simulando["progress"] == 50
+            # 1. Esperamos confirmación de inicio
+            response_iniciando = websocket.receive_json()
+            assert response_iniciando["status"] == "iniciando"
+            assert response_iniciando["progress"] == 5
 
-        # 3. Esperamos el resultado final (o error si el motor de sumo no está corriendo)
-        response_final = websocket.receive_json()
-        assert response_final["status"] in ["completado", "error"]
-        
-        if response_final["status"] == "completado":
-            assert "resultado" in response_final
-            assert response_final["progress"] == 100
-            print("\n=== RESULTADOS DE LA SIMULACIÓN ===")
-            print(json.dumps(response_final["resultado"], indent=2))
-        else:
-            # Si el backend de sumo temporal no está levantado en localhost:8000
-            # o sumo:8000, fallará con 'error'.
-            print("El servidor SUMO temporal no respondió o hubo un error:", response_final.get("detail"))
+            # 2. Recibimos notificaciones hasta completar o recibir error si SUMO no está corriendo
+            response_final = websocket.receive_json()
+            while response_final["status"] == "simulando":
+                response_final = websocket.receive_json()
+
+            assert response_final["status"] in ["completado", "error"]
+
+            if response_final["status"] == "completado":
+                assert "resultado" in response_final
+                assert response_final["progress"] == 100
+                print("\n=== RESULTADOS DE LA SIMULACIÓN ===")
+                print(json.dumps(response_final["resultado"], indent=2))
+            else:
+                print("El servidor SUMO temporal no respondió o hubo un error:", response_final.get("detail"))
+    finally:
+        _cleanup_test_user()

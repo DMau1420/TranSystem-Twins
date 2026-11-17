@@ -1,7 +1,11 @@
 import json
-import asyncio
+from uuid import UUID
 from fastapi import WebSocket, WebSocketDisconnect
 import websockets
+
+from core.database import session_local
+from schemas.sc_resultados import CreateResultado
+from services.resultados_service import ResultadoService
 
 SUMO_WS_URL = "ws://sumo:8000"
 SUMO_WS_URL_LOCAL = "ws://localhost:8000"
@@ -23,7 +27,7 @@ class SumoService:
         return {"error": "No se pudo conectar al servicio SUMO"}
 
     @staticmethod
-    async def simular(websocket: WebSocket):
+    async def simular(websocket: WebSocket, usuario_id: UUID | None = None, token: str | None = None):
         await websocket.accept()
         try:
             while True:
@@ -39,8 +43,13 @@ class SumoService:
                     "progress": 5,
                     "message": "Conectando al microservicio SUMO..."
                 })
-                
-                req_payload = {"action": "simular", "payload": payload}
+
+                sim_payload = (
+                    {**payload, "token": token}
+                    if token and isinstance(payload, dict) and "token" not in payload
+                    else payload
+                )
+                req_payload = {"action": "simular", "payload": sim_payload}
                 connected = False
 
                 for target_url in [SUMO_WS_URL, SUMO_WS_URL_LOCAL]:
@@ -70,17 +79,19 @@ class SumoService:
                                         "resultado": resultado
                                     })
 
-                                    import httpx
-                                    try:
-                                        esc_id = payload.get("escenario_id")
-                                        if esc_id:
-                                            async with httpx.AsyncClient() as client:
-                                                await client.post(
-                                                    "http://localhost:8000/resultado-sumo",
-                                                    json={"escenario_id": esc_id, **resultado}
-                                                )
-                                    except Exception:
-                                        pass
+                                    esc_id = payload.get("escenario_id") if isinstance(payload, dict) else None
+                                    if esc_id and usuario_id and isinstance(resultado, dict):
+                                        db = session_local()
+                                        try:
+                                            ResultadoService.crear_resultado(
+                                                db=db,
+                                                resultado_in=CreateResultado(escenario_id=esc_id, **resultado),
+                                                usuario_id=usuario_id,
+                                            )
+                                        except Exception:
+                                            pass
+                                        finally:
+                                            db.close()
                                     break
                                 elif "error" in res:
                                     await websocket.send_json({
@@ -129,8 +140,13 @@ class SumoService:
         return await SumoService._send_ws_request({"action": "get_resultado"})
             
     @staticmethod
-    async def proxy_post_simular(payload: dict):
+    async def proxy_post_simular(payload: dict, token: str | None = None):
+        sim_payload = (
+            {**payload, "token": token}
+            if token and isinstance(payload, dict) and "token" not in payload
+            else payload
+        )
         return await SumoService._send_ws_request({
             "action": "simular",
-            "payload": payload
+            "payload": sim_payload
         })

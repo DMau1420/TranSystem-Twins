@@ -1,3 +1,4 @@
+import copy
 import json
 from typing import Any
 from uuid import UUID
@@ -210,3 +211,42 @@ class EscenarioService:
         db.commit()
         db.refresh(escenario)
         return escenario
+
+    @staticmethod
+    def duplicar_escenario(
+        db: Session,
+        escenario_id: int,
+        usuario_id: UUID,
+        nombre: str | None = None,
+    ) -> Escenarios:
+        original = (
+            db.query(Escenarios)
+            .join(Proyectos, Escenarios.proyecto_id == Proyectos.id)
+            .filter(Escenarios.id == escenario_id, Proyectos.usuario_id == usuario_id)
+            .first()
+        )
+        if not original:
+            raise EscenarioNotFoundException()
+
+        nuevo_nombre = (
+            nombre.strip()
+            if nombre and nombre.strip()
+            else f"{original.nombre} (copia)"
+        )
+        copia = Escenarios(
+            proyecto_id=original.proyecto_id,
+            nombre=nuevo_nombre,
+            zona_geom=original.zona_geom,
+            osm_file_url=original.osm_file_url,
+            tipo_demanda=original.tipo_demanda,
+            interseccion_ref=original.interseccion_ref,
+            demanda_vehicular=original.demanda_vehicular,
+            duracion_segundos=original.duracion_segundos,
+            modificaciones_edges=copy.deepcopy(original.modificaciones_edges or []),
+            modificaciones_semaforos=copy.deepcopy(original.modificaciones_semaforos or []),
+            resultado=None,
+        )
+        db.add(copia)
+        db.commit()
+        db.refresh(copia)
+        return copia

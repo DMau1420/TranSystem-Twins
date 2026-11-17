@@ -59,10 +59,7 @@ class AuthService:
         return Token(access_token = access_token, token_type="bearer")
 
     @staticmethod
-    def obtener_usuario_actual(
-        token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db),
-    ) -> User:
+    def obtener_usuario_desde_token(db: Session, token: str) -> User:
         try:
             payload = decode_access_token(token)
             user_uuid_str = payload.get("uuid") or payload.get("sub")
@@ -76,6 +73,13 @@ class AuthService:
         if not usuario:
             raise UserNotFoundException()
         return usuario
+
+    @staticmethod
+    def obtener_usuario_actual(
+        token: str = Depends(oauth2_scheme),
+        db: Session = Depends(get_db),
+    ) -> User:
+        return AuthService.obtener_usuario_desde_token(db=db, token=token)
 
     @staticmethod
     def modificar_user(db: Session, usuario: User, user_in: UpdateUser) -> User:
