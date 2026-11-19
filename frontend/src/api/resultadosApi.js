@@ -3,7 +3,7 @@
 // Endpoints documentados en backend/routers/r_resultados.py:
 //   GET    /resultados/                → lista (filtrables por escenario_id)
 //   GET    /resultados/:id             → por ID
-//   POST   /resultados/crear           → registrar un resultado nuevo
+//   POST   /resultados/registrar       → registrar un resultado nuevo
 //   DELETE /resultados/:id             → eliminar un resultado
 import { authFetch } from './http';
 
@@ -26,7 +26,7 @@ export const obtenerResultado = (token, id) =>
   authFetch(`/resultados/${id}`, { token });
 
 /**
- * POST /resultados/crear
+ * POST /resultados/registrar
  * Registra manualmente un resultado de simulación.
  * payload: {
  *   escenario_id: number,
@@ -38,7 +38,7 @@ export const obtenerResultado = (token, id) =>
  * }
  */
 export const crearResultado = (token, payload) =>
-  authFetch('/resultados/crear', { token, method: 'POST', body: payload });
+  authFetch('/resultados/registrar', { token, method: 'POST', body: payload });
 
 /**
  * DELETE /resultados/:id

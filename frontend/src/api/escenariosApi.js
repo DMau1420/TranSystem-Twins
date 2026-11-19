@@ -34,6 +34,13 @@ export const actualizarEscenario = (token, id, payload) =>
 export const eliminarEscenario = (token, id) =>
   authFetch(`/escenarios/${id}`, { token, method: 'DELETE' });
 
+/**
+ * POST /escenarios/:id/duplicar
+ * payload?: { nombre?: string }
+ */
+export const duplicarEscenario = (token, id, payload = {}) =>
+  authFetch(`/escenarios/${id}/duplicar`, { token, method: 'POST', body: payload });
+
 // ─── Infraestructura y semáforos ──────────────────────────────────────────────
 
 /**

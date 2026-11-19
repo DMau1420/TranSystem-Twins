@@ -128,8 +128,10 @@ async def handler(websocket):
                     backend_url = os.getenv("BACKEND_URL", "http://backend:8000")
                     if not backend_url.startswith("http"):
                         backend_url = f"http://{backend_url}"
+                    token = payload.get("token") if isinstance(payload, dict) else None
+                    headers = {"Authorization": f"Bearer {token}"} if token else {}
                     try:
-                        r_esc = requests.get(f"{backend_url}/escenarios/{escenario_id}", timeout=5)
+                        r_esc = requests.get(f"{backend_url}/escenarios/{escenario_id}", headers=headers, timeout=5)
                         if r_esc.status_code == 200:
                             esc_data = r_esc.json()
                             escenario_actual["id"] = esc_data["id"]
@@ -142,7 +144,7 @@ async def handler(websocket):
                             if not (isinstance(payload, dict) and payload.get("duracion_segundos")):
                                 escenario_actual["duracion_segundos"] = esc_data.get("duracion_segundos", 3600)
 
-                            r_proj = requests.get(f"{backend_url}/proyectos/{esc_data['proyecto_id']}", timeout=5)
+                            r_proj = requests.get(f"{backend_url}/proyectos/{esc_data['proyecto_id']}", headers=headers, timeout=5)
                             if r_proj.status_code == 200:
                                 proj_data = r_proj.json()
                                 proyecto_actual["id"] = proj_data["id"]

@@ -14,6 +14,7 @@ Convención de estado:
 | **Pendiente (simulado)** | Servicio simulado o prototipo en memoria que requiere integración final. |
 | **Planificado** | Diseñado y especificado funcionalmente, pendiente de implementación. |
 | **Por probar** | Implementado a nivel de generación/descarga, en fase de validación de pruebas. |
+| **Reemplazado** | Endpoint independiente eliminado; su funcionalidad fue absorbida por otros módulos (Proyectos y Escenarios). |
 
 ## Índice
 1. [Arquitectura y canales de comunicación](#1-arquitectura-y-canales-de-comunicación)
@@ -51,10 +52,10 @@ flowchart LR
 
 | Canal | Origen → Destino | Formato | Autenticación |
 |---|---|---|---|
-| REST | Frontend → Backend | JSON (`application/json`); login también acepta `x-www-form-urlencoded` | `Authorization: Bearer <JWT>` (excepto `/auth/register`, `/auth/login`, `/points`, `/red`, simulación) |
-| WebSocket | Frontend → Backend (`/ws/simular`) | Texto JSON | Ninguna a nivel de socket |
-| WebSocket | Backend → SUMO (`ws://sumo:8000`, fallback `ws://localhost:8000`) | Texto JSON `{"action": ..., ...}` | Ninguna |
-| REST | SUMO → Backend (`BACKEND_URL`) | JSON | Ninguna (consume `GET /escenarios/{id}` y `GET /proyectos/{id}`) |
+| REST | Frontend → Backend | JSON (`application/json`); login también acepta `x-www-form-urlencoded` | `Authorization: Bearer <JWT>` en todos los endpoints (excepto `/auth/register` y `/auth/login`) |
+| WebSocket | Frontend → Backend (`/ws/simular`) | Texto JSON | JWT vía `?token=<JWT>` o header `Authorization: Bearer <JWT>` (código `4001` si falla) |
+| WebSocket | Backend → SUMO (`ws://sumo:8000`, fallback `ws://localhost:8000`) | Texto JSON `{"action": ..., ...}` | Reenvía `payload.token` en la acción `simular` |
+| REST | SUMO → Backend (`BACKEND_URL`) | JSON | `Authorization: Bearer <JWT>` recibido en `payload.token` (`GET /escenarios/{id}`, `GET /proyectos/{id}`) |
 | HTTP | SUMO → Overpass | `application/x-www-form-urlencoded` con query Overpass QL | — |
 | SQL | Backend → PostGIS | SQLAlchemy | `DATABASE_URL` |
 | MQTT | Simulador → `gemelo_service` | JSON en tópico `transystem/vehiculos_por_minuto` | — |
@@ -212,6 +213,9 @@ classDiagram
     class ModificarSemaforo {
         +list~FaseSemaforo~ fases
     }
+    class DuplicarEscenario {
+        +str nombre?
+    }
     class EscenarioResponse {
         +int id
         +int proyecto_id
@@ -242,30 +246,7 @@ classDiagram
         +int vehiculos_atendidos?
         +str reporte_pdf_url?
     }
-    class PointsPayload {
-        +list~PointItem~ points
-    }
-    class PointItem {
-        +str id
-        +float lat
-        +float lng
-        +GeoJson geoJson
-        +str street?
-        +str displayName?
-    }
-    class GeoJson {
-        +str type = "Feature"
-        +dict properties
-        +Geometry geometry
-    }
-    class Geometry {
-        +str type = "Point"
-        +list~float~ coordinates
-    }
     ModificarSemaforo --> FaseSemaforo
-    PointsPayload --> PointItem
-    PointItem --> GeoJson
-    GeoJson --> Geometry
 ```
 
 > `CreateResultado` acepta campos extra y mapea alias enviados por SUMO: `espera_promedio` → `tiempo_promedio_espera`, `vehiculos_simulados` → `vehiculos_atendidos`.
@@ -301,7 +282,7 @@ classDiagram
 
 ### 3.4 Protocolo WebSocket
 
-**Frontend ⇄ Backend** (`ws://<host>:8000/ws/simular`)
+**Frontend ⇄ Backend** (`ws://<host>:8000/ws/simular?token=<JWT>`)
 
 | Dirección | Mensaje |
 |---|---|
@@ -318,7 +299,7 @@ classDiagram
 | `get_red` | `{"action":"get_red"}` | `{"action":"red_response","data":<GeoJSON FeatureCollection>}` o `{"error":"...","status":409}` |
 | `patch_infraestructura` | `{"action":..,"edge_id":str,"datos":{"carriles":int,"velocidad_max":float}}` | `{"action":"infra_response","ok":true,"edge_id":str}` |
 | `patch_semaforo` | `{"action":..,"tls_id":str,"datos":{"fases":[FaseSemaforo]}}` | `{"action":"semaforo_response","ok":true,"tls_id":str}` |
-| `simular` | `{"action":"simular","payload":{"escenario_id"?,"duracion_segundos"?,"demanda_vehicular"?}}` | Varios `{"action":"progress","progress":int,"message":str}` y finalmente `{"action":"simular_response","status":"completado","progress":100,"message":str,"data":{indicadores}}` |
+| `simular` | `{"action":"simular","payload":{"escenario_id"?,"duracion_segundos"?,"demanda_vehicular"?,"token"?}}` | Varios `{"action":"progress","progress":int,"message":str}` y finalmente `{"action":"simular_response","status":"completado","progress":100,"message":str,"data":{indicadores}}` |
 | `get_resultado` | `{"action":"get_resultado"}` | `{"action":"resultado_response","data":{indicadores}}` o `{"error":"...","status":404}` |
 | desconocida | — | `{"error":"Unknown action"}` |
 
@@ -342,24 +323,24 @@ classDiagram
 | CU-10 | Configurar demanda vehicular | Edición | Investigador | Implementado (mejora planificada: flujos origen–destino) |
 | CU-11 | Guardar escenario | Escenarios | Investigador | Implementado |
 | CU-12 | Gestionar escenarios | Escenarios | Investigador | Implementado |
-| CU-13 | Ejecutar simulación con progreso en tiempo real | Simulación | Investigador | Implementado  |
-| CU-14 | Consultar y guardar resultados | Simulación | Investigador | Implementado  |
-| CU-15 | Comparar escenarios por métricas | Simulación | Investigador | WIP |
-| CU-16 | Guardar y consultar puntos geoespaciales | Utilidades | Investigador | Implementado |
-| CU-17 | Monitoreo de vehículos por minuto (MQTT) | Gemelo digital | Simulador MQTT | pendiente (simulado) (mejora planificada: se amplía en CU-23 a CU-26) |
+| CU-13 | Ejecutar simulación con progreso en tiempo real | Simulación | Investigador | Implementado (JWT en WS/REST, token a SUMO y guardado automático) |
+| CU-14 | Consultar y guardar resultados | Simulación | Investigador | Implementado (`POST /resultados/registrar`) |
+| CU-15 | Comparar escenarios por métricas | Simulación | Investigador | WIP (en espera de definiciones externas) |
+| CU-16 | Guardar y consultar puntos y zonas geográficas | Proyectos / Escenarios | Investigador | Reemplazado (integrado en `proyectos.geometria` y `escenarios.zona_geom`) |
+| CU-17 | Monitoreo de vehículos por minuto (MQTT) | Gemelo digital | Simulador MQTT | Pendiente (simulado; depende de definiciones externas) |
 | CU-18 | Cerrar sesión | Cuenta | Investigador | Implementado |
-| CU-19 | Crear escenario a partir de la red base | Escenarios | Investigador | Planificado (corregir front) |
-| CU-20 | Duplicar escenario como alternativa | Escenarios | Investigador | Planificado |
-| CU-21 | Cargar aforos desde archivo CSV | Escenarios | Investigador | Planificado |
+| CU-19 | Crear escenario a partir de la red base | Escenarios | Investigador | Planificado (corregir front; depende de flujo de importación) |
+| CU-20 | Duplicar escenario como alternativa | Escenarios | Investigador | Implementado |
+| CU-21 | Cargar aforos desde archivo CSV | Escenarios | Investigador | Planificado (depende de definiciones externas) |
 | CU-22 | Construir red y archivos SUMO del escenario | Simulación | Sistema | WIP |
-| CU-23 | Publicar datos de demanda | Demanda MQTT | Fuente de datos | Planificado |
-| CU-24 | Recibir y normalizar demanda | Demanda MQTT | Sistema | Planificado |
-| CU-25 | Aplicar demanda en tiempo real a la simulación | Demanda MQTT | Sistema | Planificado |
-| CU-26 | Visualizar demanda en vivo | Demanda MQTT | Investigador | Planificado |
-| CU-27 | Visualizar simulación en el mapa (vehículos y filas) | Simulación | Investigador | WIP |
-| CU-28 | Calcular y almacenar indicadores | Simulación | Sistema | WIP |
-| CU-29 | Generar reporte técnico PDF | Reportes | Investigador | Por probar |
-| CU-30 | Consultar y descargar reportes | Reportes | Investigador | Por probar |
+| CU-23 | Publicar datos de demanda | Demanda MQTT | Fuente de datos | Planificado (depende de definiciones externas) |
+| CU-24 | Recibir y normalizar demanda | Demanda MQTT | Sistema | Planificado (depende de definiciones externas) |
+| CU-25 | Aplicar demanda en tiempo real a la simulación | Demanda MQTT | Sistema | Planificado (depende de definiciones externas) |
+| CU-26 | Visualizar demanda en vivo | Demanda MQTT | Investigador | Planificado (depende de definiciones externas) |
+| CU-27 | Visualizar simulación en el mapa (vehículos y filas) | Simulación | Investigador | WIP (depende de definiciones externas) |
+| CU-28 | Calcular y almacenar indicadores | Simulación | Sistema | WIP (persistencia general en BD implementada; faltan métricas por flujo/LOS) |
+| CU-29 | Generar reporte técnico PDF | Reportes | Investigador (módulo SUMO) | Por probar |
+| CU-30 | Consultar y descargar reportes | Reportes | Investigador (módulo SUMO) | Por probar |
 
 ### 4.2 Diagrama general
 
@@ -394,12 +375,12 @@ flowchart LR
         CU11[CU-11 Guardar escenario]
         CU12[CU-12 Gestionar escenarios]
         CU19["CU-19 Escenario desde red base (planificado)"]
-        CU20["CU-20 Duplicar escenario (planificado)"]
+        CU20[CU-20 Duplicar escenario]
     end
     subgraph Simulación
         CU13[CU-13 Ejecutar simulación]
         CU22["CU-22 Construir archivos SUMO (WIP)"]
-        CU27["CU-27 Visualizar simulación (planificado)"]
+        CU27["CU-27 Visualizar simulación (WIP)"]
         CU28["CU-28 Calcular indicadores (WIP)"]
         CU14[CU-14 Resultados]
         CU15["CU-15 Comparar escenarios (WIP)"]
@@ -414,14 +395,13 @@ flowchart LR
         CU29["CU-29 Generar PDF (Por probar)"]
         CU30["CU-30 Consultar reportes (Por probar)"]
     end
-    CU16[CU-16 Puntos]
     CU17["CU-17 Vehículos por minuto (simulado)"]
 
     V --> CU01
     U --> CU02 & CU03 & CU04 & CU05 & CU06
     U --> CU07 & CU08 & CU09 & CU10 & CU11 & CU12
-    U --> CU13 & CU14 & CU15 & CU16
-    U --> CU18 & CU19 & CU20 & CU21 & CU26 & CU27 & CU29 & CU30
+    U --> CU13 & CU14 & CU15 & CU20
+    U --> CU18 & CU19 & CU21 & CU26 & CU27 & CU29 & CU30
     A --> CU02 & CU18 & CU19
     F --> CU25
     CU13 -. include .-> CU22
@@ -665,7 +645,7 @@ El flujo es análogo al de CU-08 (sustituyendo `infraestructura/{edge_id}` por `
 | Campo | Valor |
 |---|---|
 | Precondición | Existe el proyecto (`proyecto_id`) |
-| Endpoint | `POST /escenarios/` → `201` |
+| Endpoint | `POST /escenarios/crear` → `201` |
 | Entrada | `CreateEscenario` (`proyecto_id`, `nombre` obligatorios) |
 | Salida | `EscenarioResponse` (`zona_geom` convertida de WKB a GeoJSON) |
 | Posterior | `modificaciones_*` se añaden con CU-08/CU-09 o `PUT` (CU-12) |
@@ -677,12 +657,12 @@ sequenceDiagram
     participant BE as Backend
     participant DB as PostGIS
     U->>FE: "Guardar escenario" (nombre)
-    FE->>BE: POST /escenarios/ (CreateEscenario)
+    FE->>BE: POST /escenarios/crear (CreateEscenario)
     BE->>DB: Verifica proyecto del usuario
     BE->>DB: INSERT escenarios
     BE-->>FE: 201 EscenarioResponse
     opt hay modificaciones pendientes
-        FE->>BE: PUT /escenarios/{id} (UpdateEscenario con modificaciones_*)
+        FE->>BE: PUT /escenarios/modificar/{id} (UpdateEscenario con modificaciones_*)
         BE-->>FE: EscenarioResponse
     end
 ```
@@ -693,34 +673,63 @@ sequenceDiagram
 |---|---|---|---|
 | Listar | `GET /escenarios/?proyecto_id=<int>` | filtro opcional | `list[EscenarioResponse]` |
 | Consultar | `GET /escenarios/{escenario_id}` | — | `EscenarioResponse` |
-| Actualizar | `PUT /escenarios/{escenario_id}` | `UpdateEscenario` | `EscenarioResponse` |
+| Actualizar | `PUT /escenarios/modificar/{escenario_id}` | `UpdateEscenario` | `EscenarioResponse` |
+| Duplicar | `POST /escenarios/{escenario_id}/duplicar` | `DuplicarEscenario` (opcional) | `EscenarioResponse` (ver CU-20) |
 | Eliminar | `DELETE /escenarios/{escenario_id}` | — | confirmación (elimina resultados en cascada) |
 
 Todas requieren JWT. Inexistente → `404 EscenarioNotFoundException`.
 
 
+### CU-20 Duplicar escenario como alternativa
+
+| Estado | Implementado |
+|---|---|
+
+| Campo | Valor |
+|---|---|
+| Actor | Investigador |
+| Precondición | Existe un escenario guardado perteneciente al usuario |
+| Endpoint | `POST /escenarios/{escenario_id}/duplicar` → `201 Created` |
+| Entrada | `DuplicarEscenario` opcional (`{"nombre": "..."}`; si se omite, usa `<nombre original> (copia)`) |
+| Salida | `EscenarioResponse` con `id` nuevo, `modificaciones_edges` y `modificaciones_semaforos` copiadas en profundidad, misma demanda/duración/geometría y `resultado = null` |
+| Postcondición | Escenario alternativo persistido en BD, listo para editar, simular y comparar |
+
+```mermaid
+sequenceDiagram
+    actor U as Investigador
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as PostGIS
+    U->>FE: Pulsa "Duplicar escenario"
+    FE->>BE: POST /escenarios/{id}/duplicar (Bearer)
+    BE->>DB: Verifica escenario y pertenencia por usuario
+    BE->>DB: INSERT escenarios (copia profunda de modificaciones, resultado=NULL)
+    BE-->>FE: 201 EscenarioResponse
+```
+
+
 ### CU-13 Ejecutar simulación con progreso en tiempo real
 
-**Mejora planificada:** (1) validar que el escenario esté completo y rechazar una segunda simulación activa del mismo escenario; (2) **nunca reimportar la zona**: parte de la red base; (3) construir red/rutas del escenario con `netconvert` (CU-22); (4) controlar SUMO por **TraCI** con semilla fija (duración por defecto 7200 s), enviar posiciones por WebSocket (CU-27) y soportar cancelación (se descartan resultados parciales); (5) calcular y persistir indicadores (CU-28).
+**Mejora planificada:** (1) validar que el escenario esté completo y rechazar una segunda simulación activa del mismo escenario; (2) **nunca reimportar la zona**: parte de la red base; (3) construir red/rutas del escenario con `netconvert` (CU-22); (4) controlar SUMO por **TraCI** con semilla fija (duración por defecto 7200 s), enviar posiciones por WebSocket (CU-27) y soportar cancelación (se descartan resultados parciales); (5) calcular indicadores por flujo y nivel de servicio (CU-28).
 
 | Campo | Valor |
 |---|---|
 | Actores | Investigador, Backend, Servicio SUMO, Overpass API |
-| Precondición | Proyecto con `geometria` y escenario guardado (`escenario_id`) |
-| Canal | WebSocket `ws://<host>:8000/ws/simular` (alternativa REST: `POST /simular` con el mismo payload, devuelve la respuesta final) |
+| Precondición | Usuario autenticado (JWT válido), proyecto con `geometria` y escenario guardado (`escenario_id`) |
+| Canal | WebSocket `ws://<host>:8000/ws/simular?token=<JWT>` o header `Authorization: Bearer <JWT>` (alternativa REST: `POST /simular` con JWT, devuelve la respuesta final) |
 | Entrada | `{"escenario_id":7,"duracion_segundos":1800,"demanda_vehicular":200}` (todos opcionales) |
 | Salida | Mensajes `progress` y mensaje final `completado` con `resultado` (indicadores, ver 3.3) |
-| Postcondición | `ULTIMO_RESULTADO` en memoria de SUMO (consultable con `GET /resultado`); el backend reenvía los indicadores a `POST /resultado-sumo` |
+| Postcondición | `ULTIMO_RESULTADO` en memoria de SUMO (consultable con `GET /resultado` con JWT); el backend persiste automáticamente el resultado en `resultados` si recibe `escenario_id` |
 
 **Flujo principal**
-1. El usuario pulsa "Simular"; el frontend abre el WebSocket y envía el payload.
-2. El backend responde `iniciando` (5 %) y abre un WebSocket hacia SUMO con `{"action":"simular","payload":...}`.
-3. SUMO, si hay `escenario_id`, consulta `GET /escenarios/{id}` y `GET /proyectos/{proyecto_id}` al backend para obtener modificaciones, demanda, duración y rutas de archivos.
+1. El usuario pulsa "Simular"; el frontend abre el WebSocket enviando su JWT (`?token=...`).
+2. El backend valida el token (cierra con código `4001` si falta o es inválido), responde `iniciando` (5 %) y abre un WebSocket hacia SUMO con `{"action":"simular","payload":{..., "token": <JWT>}}`.
+3. SUMO, si hay `escenario_id`, consulta `GET /escenarios/{id}` y `GET /proyectos/{proyecto_id}` al backend usando `Authorization: Bearer <token>` para obtener modificaciones, demanda, duración y rutas de archivos reales desde PostGIS.
 4. SUMO aplica `modificaciones_edges` y `modificaciones_semaforos`, genera la demanda y corre la simulación, emitiendo `progress`.
 5. SUMO procesa `tripinfo.xml` / `queue.xml` y envía `simular_response` con los indicadores.
-6. El backend envía `completado` al frontend, que muestra el modal de resultados.
+6. El backend envía `completado` al frontend y guarda automáticamente los indicadores en `resultados` (`ResultadoService.crear_resultado`).
 
-**Alternos:** SUMO inaccesible → `{"status":"error","message":"No se pudo conectar al microservicio SUMO"}`; JSON inválido → `{"error":"Invalid JSON format"}`; fallo interno → `{"error": "<detalle>"}`; Overpass saturado (429/504) → hasta 3 reintentos alternando servidor.
+**Alternos:** JWT ausente o inválido → cierre WebSocket `4001` (o HTTP `401` en `POST /simular`); SUMO inaccesible → `{"status":"error","message":"No se pudo conectar al microservicio SUMO"}`; JSON inválido → `{"error":"Invalid JSON format"}`; fallo interno → `{"error": "<detalle>"}`; Overpass saturado (429/504) → hasta 3 reintentos alternando servidor.
 
 ```mermaid
 sequenceDiagram
@@ -728,15 +737,17 @@ sequenceDiagram
     participant FE as Frontend
     participant BE as Backend (/ws/simular)
     participant S as SUMO (WS :8000)
+    participant DB as PostGIS
 
     U->>FE: Pulsa "Simular"
-    FE->>BE: WS connect + {escenario_id, duracion_segundos, demanda_vehicular}
+    FE->>BE: WS connect (?token=JWT) + {escenario_id, duracion_segundos, demanda_vehicular}
+    BE->>BE: Valida JWT (4001 si inválido)
     BE-->>FE: {status:iniciando, progress:5}
-    BE->>S: {action:"simular", payload}
+    BE->>S: {action:"simular", payload:{..., token}}
     S-->>BE: {action:"progress", progress:5}
-    S->>BE: GET /escenarios/{id}
+    S->>BE: GET /escenarios/{id} (Bearer JWT)
     BE-->>S: EscenarioResponse
-    S->>BE: GET /proyectos/{proyecto_id}
+    S->>BE: GET /proyectos/{proyecto_id} (Bearer JWT)
     BE-->>S: ProyectoResponse
 
     S->>S: aplica modificaciones + genera demanda
@@ -746,8 +757,8 @@ sequenceDiagram
     end
     S->>S: procesar_resultados(tripinfo.xml, queue.xml)
     S-->>BE: {action:"simular_response", data:indicadores}
+    BE->>DB: INSERT resultados (ResultadoService.crear_resultado)
     BE-->>FE: {status:completado, progress:100, resultado}
-    BE->>BE: POST /resultado-sumo (indicadores)
     FE->>U: Modal de resultados
 ```
 
@@ -755,16 +766,16 @@ sequenceDiagram
 
 ### CU-14 Consultar y guardar resultados de simulación
 
-**Mejora planificada:** el backend guardará los indicadores automáticamente al recibirlos de SUMO (hoy `/resultado-sumo` solo imprime) y marcará el escenario como "disponible para comparación". Si el backend falla, SUMO registrará el estado y permitirá reenviar. Se incluirán indicadores por flujo y nivel de servicio.
+**Estado actual / mejora:** al finalizar la simulación por WebSocket (`CU-13`), el backend ya persiste automáticamente los indicadores en PostgreSQL y se eliminó el endpoint de prueba `POST /resultado-sumo`. Sigue disponible `POST /resultados/registrar` para registro explícito. Queda pendiente marcar estado del escenario e incluir indicadores por flujo y nivel de servicio.
 
 | Campo | Valor |
 |---|---|
 | Precondición | Simulación completada (CU-13) y escenario guardado |
-| Guardar | `POST /resultados/crear` → `201`, entrada `CreateResultado`, salida `ResultadoResponse` |
+| Registrar | `POST /resultados/registrar` → `201`, entrada `CreateResultado`, salida `ResultadoResponse` |
 | Listar | `GET /resultados/?escenario_id=<int>` → `list[ResultadoResponse]` |
 | Consultar | `GET /resultados/{resultado_id}` → `ResultadoResponse` |
 | Eliminar | `DELETE /resultados/{resultado_id}` |
-| Último resultado de SUMO | `GET /resultado` → `{"action":"resultado_response","data":{indicadores}}` |
+| Último resultado de SUMO | `GET /resultado` (con JWT) → `{"action":"resultado_response","data":{indicadores}}` |
 
 **Ejemplo de entrada**
 ```json
@@ -780,8 +791,8 @@ sequenceDiagram
     participant BE as Backend
     participant DB as PostGIS
     U->>FE: Revisa métricas en el modal
-    U->>FE: "Guardar resultado"
-    FE->>BE: POST /resultados/crear (CreateResultado)
+    U->>FE: "Guardar resultado" (o registro manual)
+    FE->>BE: POST /resultados/registrar (CreateResultado)
     BE->>DB: verifica escenario → INSERT resultados
     BE-->>FE: 201 ResultadoResponse
     U->>FE: Abre historial
@@ -790,14 +801,14 @@ sequenceDiagram
 ```
 
 
-### CU-16 Guardar y consultar puntos geoespaciales
-| Operación | Endpoint | Entrada | Salida |
-|---|---|---|---|
-| Guardar | `POST /points` → `201` | `PointsPayload`: `{"points":[{"id":"p1","lat":19.43,"lng":-99.13,"geoJson":{"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[-99.13,19.43]}},"street":"Reforma","displayName":"..."}]}` | Puntos guardados |
-| Listar | `GET /points` | — | Todos los puntos |
-| Consultar | `GET /points/{point_id}` | `point_id: str` | Un punto |
+### CU-16 Guardar y consultar puntos y zonas geográficas (Reemplazado)
 
-Estos endpoints **no requieren JWT**. Errores: `500 CantSavePoint/CantReadPoint`, `404 DoesntExistPoints`.
+| Estado | Reemplazado (integrado en Proyectos y Escenarios) |
+|---|---|
+
+Los endpoints independientes de prueba `/points` (`r_points.py`, `points_service.py`, `sc_points.py` y almacenamiento local en `saved_points/`) fueron **eliminados del backend** por ser código de prueba sin uso activo. La persistencia de puntos, polígonos y zonas geográficas pasa a ser responsabilidad directa de:
+- **Proyectos (`CU-05`, `CU-06`):** campo JSONB `proyectos.geometria` vía `POST /proyectos/crear` y `PUT /proyectos/modificar/{proyecto_id}`.
+- **Escenarios (`CU-11`, `CU-12`):** campo geoespacial PostGIS `escenarios.zona_geom` (SRID 4326) vía `POST /escenarios/crear` y `PUT /escenarios/modificar/{escenario_id}`.
 
 
 ---
@@ -880,7 +891,7 @@ sequenceDiagram
 | Precondición | Simulación finalizada con archivos de resultados |
 | Flujo principal | 1. Procesa `tripinfo.xml` / `queue.xml`. 2. Calcula indicadores generales (espera, longitud máxima de fila, velocidad, vehículos atendidos, **nivel de servicio**). 3. Si hay flujos, calcula indicadores **por flujo**. 4. Envía al backend con `escenario_id`.  |
 | Alternos | No se pueden procesar resultados → simulación fallida, no se envía nada. Backend no responde → se registra el estado y se permite reenviar. |
-| Hoy | Indicadores generales ya existen (ver 3.3)|
+| Hoy | Los indicadores generales ya existen (ver 3.3) y el backend los guarda automáticamente en `resultados` al finalizar `/ws/simular` (`CU-13`), además de exponer `POST /resultados/registrar`. Faltan métricas por flujo y nivel de servicio. |
 
 
 
@@ -919,17 +930,6 @@ flowchart TD
 | Flujo principal | 1. "Nuevo escenario" dentro del proyecto. 2. Captura el nombre. 3. El sistema lo asocia a la red base **sin importar nada de OSM**. 4. Se muestra la red base en el mapa. 5. Se guarda sin modificaciones (situación actual). |
 | Alterno | Proyecto sin red base → no se permite crear escenarios y se indica completar la importación |
 | Postcondición | Escenario listo para CU-08, CU-09 y CU-10 |
-
-
-### CU-20 Duplicar escenario como alternativa (planificado)
-
-| Campo | Descripción |
-|---|---|
-| Actor | Investigador |
-| Precondición | Existe un escenario guardado |
-| Flujo principal | 1. Selecciona "Duplicar". 2. El sistema copia infraestructura (`modificaciones_*`) y demanda. 3. El usuario ajusta parámetros (p. ej. verde de 30 s a 45 s, un carril extra). 4. Guarda el nuevo escenario. |
-| Datos propuestos | `POST /escenarios/{id}/duplicar` → `EscenarioResponse` (sin `resultado`) |
-| Postcondición | Alternativa lista para simular y comparar |
 
 
 ### CU-21 Cargar aforos desde archivo CSV (planificado)
@@ -1011,7 +1011,7 @@ sequenceDiagram
 
 ## 8. Casos de uso por probar
 
-Casos de uso implementados a nivel de generación/descarga de reportes, pendientes de validación y pruebas integrales.
+Casos de uso bajo responsabilidad del módulo SUMO, pendientes de validación y pruebas integrales.
 
 ### CU-29 Generar reporte técnico PDF (Por probar)
 
@@ -1040,12 +1040,11 @@ Casos de uso implementados a nivel de generación/descarga de reportes, pendient
 |---|---|---|---|
 | 400 | `EmailAlreadyRegisteredException` | Correo duplicado al registrar/modificar | Implementado |
 | 401 | `InvalidCredentialsException` | Login con datos faltantes o incorrectos | Implementado |
-| 401 | `InvalidTokenException` | JWT ausente, inválido o expirado | Implementado |
+| 401 | `InvalidTokenException` / cierre WS `4001` | JWT ausente, inválido o expirado (HTTP y `/ws/simular`) | Implementado |
 | 404 | `UserNotFoundException` | Usuario del token no existe | Implementado |
 | 404 | `ProyectoNotFoundException` | Proyecto inexistente o ajeno | Implementado |
 | 404 | `EscenarioNotFoundException` | Escenario inexistente | Implementado |
 | 404 | `ResultadoNotFoundException` | Resultado inexistente | Implementado |
-| 404 / 500 | `DoesntExistPointsException`, `CantSavePointException`, `CantReadPointException` | Puntos | Implementado |
 | 422 | `Validación Pydantic` | Tipos o rangos inválidos (p. ej. `carriles` > 10) | Implementado |
 | 409 | `Zona sin importar / simulación activa` | CU-07 (ya devuelto por SUMO como `status: 409` en el cuerpo), CU-13 | Implementado / Planificado |
 | 423 | `Cuenta bloqueada temporalmente` | Exceso de intentos de login | Planificado |
@@ -1053,8 +1052,9 @@ Casos de uso implementados a nivel de generación/descarga de reportes, pendient
 ## 10. Notas y observaciones
 
 **Estado actual (código)**
-- **Rutas REST de SUMO sin JWT:** `/red`, `/infraestructura/{edge_id}`, `/semaforo/{tls_id}`, `/resultado`, `/simular` y `/ws/simular` no validan autenticación en el backend.
-- **Estado global en SUMO:** `/infraestructura` y `/semaforo`  extraen las  modificaciones del payload que pasa el backend, mientras que las rutas bajo `/escenarios/...` las persisten en la base de datos.
-- **longitud_max_fila** puede ser `null` si no se generó `queue.xml`.
-- **Reenvío de resultados:** tras simular, el backend publica los indicadores a `http://localhost:8000/resultado-sumo`, endpoint de prueba que solo imprime. Para persistir un resultado hay que usar `POST /resultados/crear` (CU-14).
-- Las validaciones de propiedad por usuario en escenarios y resultados se infirieron de las firmas de los routers; confirma en `services/` si necesitas precisión absoluta.
+- **Autenticación en simulación:** `/red`, `/infraestructura/{edge_id}`, `/semaforo/{tls_id}`, `/resultado`, `/simular` y `/ws/simular` ya validan JWT. Además, el backend reenvía el token dentro del `payload` hacia SUMO para que `sumo/server.py` consulte `GET /escenarios/{id}` y `GET /proyectos/{id}` autenticado.
+- **Eliminación de `/points`:** `CU-16` dejó de usar el endpoint de prueba `/points` y `saved_points/`; la persistencia de puntos y geometrías recae en `proyectos.geometria` y `escenarios.zona_geom`.
+- **Persistencia de resultados:** se eliminó el endpoint de prueba `POST /resultado-sumo`. Al terminar `/ws/simular` con `escenario_id`, el backend guarda automáticamente en `resultados` (`ResultadoService.crear_resultado`), y también expone `POST /resultados/registrar`.
+- **Estado global en SUMO:** `/infraestructura` y `/semaforo` extraen las modificaciones del payload que pasa el backend, mientras que las rutas bajo `/escenarios/...` las persisten en la base de datos.
+- **`longitud_max_fila`** puede ser `null` si no se generó `queue.xml`.
+- **Casos dependientes de factores externos:** `CU-15`, `CU-17`, `CU-19`, `CU-21`, `CU-23`–`CU-26` y `CU-27` permanecen en `WIP` / `Planificado` / `Pendiente` a la espera de definiciones externas; `CU-29` y `CU-30` están asignados al responsable de SUMO.

@@ -35,7 +35,7 @@ const MOCK_DURACION_MS = 1800; // qué tan "tardada" se siente la simulación in
  * Hook que gestiona el ciclo de vida completo de una simulación:
  * 1. Sincroniza el escenario local con el backend (ensureEnBackend).
  * 2. Abre un WebSocket al endpoint /ws/simular.
- * 3. Al completarse, persiste el resultado en /resultados/crear.
+ * 3. Al completarse, persiste el resultado en /resultados/registrar.
  * 4. Si el WebSocket falla, cae a datos simulados localmente (mock).
  *
  * Props:

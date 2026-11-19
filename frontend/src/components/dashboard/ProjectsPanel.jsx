@@ -24,6 +24,7 @@ import {
   listarEscenarios,
   actualizarEscenario,
   eliminarEscenario,
+  duplicarEscenario,
 } from '../../api/escenariosApi';
 import { sysCore } from '../../styles/sysCore';
 import './ProjectsPanel.css';
@@ -452,11 +453,12 @@ export default function ProjectsPanel({ isOpen, onClose }) {
     setError(null);
     try {
       if (USE_API) {
-        throw new Error('Duplicar escenario aún no implementado en backend');
+        const copia = await duplicarEscenario(token, scenario.id);
+        setScenarios((prev) => [...prev, normalizeScenario(copia)]);
       } else {
         await duplicateScenario(scenario.id);
+        setScenarios(await listScenarios({ projectId: activeProject.id }));
       }
-      setScenarios(await listScenarios({ projectId: activeProject.id }));
     } catch {
       setError('No se pudo duplicar el escenario.');
     }
