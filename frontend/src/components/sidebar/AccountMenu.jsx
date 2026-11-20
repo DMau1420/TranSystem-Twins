@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext'; //  ajustá el path si tu hook vive en otro lado
+import { useAuth } from '../../context/AuthContext';
+import { getMeApi, updateMeApi, deleteMeApi } from '../../api/authApi';
 import './AccountMenu.css';
 
 const DELETE_CONFIRM_WORD = 'ELIMINAR';
@@ -8,19 +9,19 @@ const DELETE_CONFIRM_WORD = 'ELIMINAR';
  * Menú de cuenta estilo SYS_CORE. Se abre desde el botón de perfil en Sidebar.
  *
  * Rutas usadas (requieren JWT vía Authorization: Bearer <token>):
- *  - GET    /api/me   -> trae { name, email, ... }
- *  - PATCH  /api/me   -> actualiza los campos editables
- *  - DELETE /api/me   -> elimina cuenta + proyectos + escenarios (irreversible)
+ *  - GET    /auth/me -> trae { id, nombre, apodo, correo, rol }
+ *  - PATCH  /auth/me -> actualiza los campos editables (nombre, apodo, correo, password)
+ *  - DELETE /auth/me -> elimina cuenta + proyectos + escenarios (irreversible)
  *
  * Props:
  *  - isOpen: boolean
  *  - onClose: () => void
  */
 export default function AccountMenu({ isOpen, onClose }) {
-  const { token, logout, user } = useAuth();
+  const { token, logout, user, updateUser } = useAuth();
 
   const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'delete'
-  const [form, setForm] = useState({ name: '', email: '' });
+  const [form, setForm] = useState({ name: '', apodo: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deleteInput, setDeleteInput] = useState('');
@@ -38,16 +39,22 @@ export default function AccountMenu({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
+      const data = await getMeApi(token);
+      setForm({
+        name: data.nombre ?? '',
+        apodo: data.apodo ?? '',
+        email: data.correo ?? '',
+        password: '',
       });
-      if (!res.ok) throw new Error(`GET /api/auth/me -> ${res.status}`);
-      const data = await res.json();
-      setForm({ name: data.nombre ?? '', email: data.correo ?? '' });
-    } catch (err) {
+    } catch {
       // Fallback: datos de la sesión guardada en el navegador
       if (user?.nombre || user?.correo) {
-        setForm({ name: user.nombre ?? '', email: user.correo ?? '' });
+        setForm({
+          name: user.nombre ?? '',
+          apodo: user.apodo ?? '',
+          email: user.correo ?? '',
+          password: '',
+        });
       } else {
         setError('No se pudo cargar la información de la cuenta.');
       }
@@ -60,18 +67,31 @@ export default function AccountMenu({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ nombre: form.name, correo: form.email }),
+      const payload = {
+        nombre: form.name.trim(),
+        apodo: form.apodo.trim() || null,
+        correo: form.email.trim(),
+      };
+      if (form.password.trim()) {
+        payload.password = form.password;
+      }
+      const updated = await updateMeApi(token, payload);
+      updateUser({
+        nombre: updated.nombre,
+        apodo: updated.apodo,
+        correo: updated.correo,
+        rol: updated.rol,
       });
-      if (!res.ok) throw new Error(`PATCH /api/auth/me -> ${res.status}`);
+      setForm((f) => ({
+        ...f,
+        name: updated.nombre ?? f.name,
+        apodo: updated.apodo ?? '',
+        email: updated.correo ?? f.email,
+        password: '',
+      }));
       setMode('view');
     } catch (err) {
-      setError('No se pudo guardar los cambios.');
+      setError(err?.message || 'No se pudo guardar los cambios.');
     } finally {
       setLoading(false);
     }
@@ -81,15 +101,11 @@ export default function AccountMenu({ isOpen, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/me', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`DELETE /api/auth/me -> ${res.status}`);
+      await deleteMeApi(token);
       logout();
       onClose();
     } catch (err) {
-      setError('No se pudo eliminar la cuenta.');
+      setError(err?.message || 'No se pudo eliminar la cuenta.');
     } finally {
       setLoading(false);
     }
@@ -137,6 +153,17 @@ export default function AccountMenu({ isOpen, onClose }) {
             </div>
 
             <div className="tst-accmenu__field">
+              <label className="tst-accmenu__label">// APODO</label>
+              <input
+                className="tst-accmenu__input"
+                value={form.apodo}
+                placeholder="Sin apodo"
+                disabled={mode !== 'edit' || loading}
+                onChange={(e) => setForm((f) => ({ ...f, apodo: e.target.value }))}
+              />
+            </div>
+
+            <div className="tst-accmenu__field">
               <label className="tst-accmenu__label">// EMAIL</label>
               <input
                 className="tst-accmenu__input"
@@ -145,6 +172,20 @@ export default function AccountMenu({ isOpen, onClose }) {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               />
             </div>
+
+            {mode === 'edit' && (
+              <div className="tst-accmenu__field">
+                <label className="tst-accmenu__label">// NUEVA_CONTRASEÑA (OPCIONAL)</label>
+                <input
+                  type="password"
+                  className="tst-accmenu__input"
+                  value={form.password}
+                  placeholder="Dejar vacío para conservar actual"
+                  disabled={loading}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                />
+              </div>
+            )}
 
             <div className="tst-accmenu__actions">
               {mode === 'view' ? (

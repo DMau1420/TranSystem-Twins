@@ -1,6 +1,7 @@
 // Red vial SUMO en formato GeoJSON (mismo formato que devuelve GET /red del backend).
 // Features: tipo_elemento "calle" (LineString) y "semaforo" (Point).
 // Orden de cada coordenada en el GeoJSON: [lng, lat]. Leaflet usa [lat, lng].
+import { API_BASE } from '../api/config';
 
 export const PRINCIPALES = [
   'motorway',
@@ -26,10 +27,11 @@ export const TIPO_TXT = {
   unclassified: 'Sin clasificar',
 };
 
-// Fuentes en orden de prioridad: backend real (proxy de Vite) y luego archivo estático.
+// Fuentes en orden de prioridad: backend real (con JWT) y luego archivo estático.
 export const FUENTES_RED = [
-  { url: '/api/red', nombre: 'backend' },
-  { url: '/red.geojson', nombre: 'archivo local' },
+  { url: `${API_BASE}/red`, nombre: 'backend', requiresAuth: true },
+  { url: '/api/red', nombre: 'backend', requiresAuth: true },
+  { url: '/red.geojson', nombre: 'archivo local', requiresAuth: false },
 ];
 
 export function esRedValida(gj) {
@@ -46,10 +48,12 @@ export function esRedValida(gj) {
  * Ojo: en desarrollo Vite responde index.html (200) a rutas desconocidas,
  * por eso se valida el contenido y no solo r.ok.
  */
-export async function cargarRed(signal) {
-  for (const { url, nombre } of FUENTES_RED) {
+export async function cargarRed(signal, token = null) {
+  for (const { url, nombre, requiresAuth } of FUENTES_RED) {
+    if (requiresAuth && !token) continue;
     try {
-      const r = await fetch(url, { signal });
+      const headers = requiresAuth && token ? { Authorization: `Bearer ${token}` } : undefined;
+      const r = await fetch(url, { signal, headers });
       if (!r.ok) continue;
       const gj = await r.json();
       if (esRedValida(gj)) return { geojson: gj, fuente: nombre };

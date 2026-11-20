@@ -3,9 +3,8 @@
 // sentido una vez que el escenario ya se guardó al menos una vez.
 import { useEffect, useRef, useState } from 'react';
 import { sysCore } from '../../styles/sysCore';
-import { useAuth } from '../../context/AuthContext'; //  mismo caveat de path que en AccountMenu/ProjectsPanel
 import { useScenario } from '../../scenario/ScenarioContext';
-import { useSimulacion } from '../../scenario/useSimulacion';
+import { useSimulacionContext } from '../../context/SimulacionContext';
 import SimulationResultsModal from './SimulationResultsModal';
 import VehicleQuickAdd from './VehicleQuickAdd';
 import { generarResultadoCoherente } from '../../scenario/mockResultado';
@@ -95,37 +94,18 @@ const ESTADO_LABEL = {
   simulando: 'SIMULANDO…',
 };
 
-import { useSimulacionContext } from '../../context/SimulacionContext';
-
 export default function SimularPanel() {
   const { scenario } = useScenario();
   const { estado, progreso, mensaje, resultado, error, simular, cancelar, running } = useSimulacionContext();
 
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState(null); // resultado real o el mock, lo que se esté mostrando
+  const resultadoMostradoRef = useRef(null);
 
-<<<<<<< HEAD
-  // save() cambia de identidad en cada edición del escenario (su useCallback
-  // depende de `scenario`), así que este efecto se vuelve a disparar por
-  // cosas que no son "se completó una simulación". Esta referencia evita
-  // repetir el guardado para el MISMO resultado — antes, cualquier cambio
-  // posterior (hasta crear un escenario nuevo) volvía a guardar el
-  // resultado viejo encima del escenario que estuviera activo en ese
-  // momento. Era el bug de los "escenarios fantasma" sin proyecto/puntos.
-  const resultadoGuardadoRef = useRef(null);
-
-  // Al completarse de verdad, guarda el resultado en el escenario (para "ver
-  // último resultado" después) y abre el modal automáticamente.
+  // Al completarse de verdad, abre el modal una sola vez para ese resultado.
   useEffect(() => {
-    if (estado === 'completado' && resultado && resultado !== resultadoGuardadoRef.current) {
-      resultadoGuardadoRef.current = resultado;
-      setResultado(resultado);
-      save({ ultimoResultado: resultado });
-=======
-  // Al completarse de verdad, abre el modal automáticamente con los resultados.
-  useEffect(() => {
-    if (estado === 'completado' && resultado) {
->>>>>>> prueba
+    if (estado === 'completado' && resultado && resultado !== resultadoMostradoRef.current) {
+      resultadoMostradoRef.current = resultado;
       setModalData(resultado);
       setShowModal(true);
     }

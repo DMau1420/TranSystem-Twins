@@ -27,15 +27,8 @@ import { reverseGeocode } from '../../utils/geocoding';
 import { sysCore } from '../../styles/sysCore';
 import RoadNetworkLayer from './RoadNetworkLayer';
 import SumoNetworkLayer from './SumoNetworkLayer';
-<<<<<<< HEAD
 import MapLegend from './MapLegend';
 import RoadEditorPanel from '../editor/RoadEditorPanel';
-=======
-import { useProyecto } from '../../context/ProyectoContext';
-import EdicionPanel from './EdicionPanel';
-import SimularBoton from './SimularBoton';
-import BottomProgressBar from './BottomProgressBar';
->>>>>>> prueba
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -240,7 +233,10 @@ export const MapContainer = () => {
   const [roadNetworkLoading, setRoadNetworkLoading] = useState(false);
   const [showSumoNetwork, setShowSumoNetwork] = useState(false);
   const { mapStyle } = useMapTheme(); // 'light' | 'dark' — controlado desde el Sidebar
-  const { selection, select } = useScenario(); // selección de calle/semáforo para el editor vial
+  const { scenario, selection, select } = useScenario(); // selección de calle/semáforo para el editor vial
+
+  const callesModificadas = new Set(Object.keys(scenario?.edits?.edges || {}));
+  const semaforosModificados = new Set(Object.keys(scenario?.edits?.junctions || {}));
 
   return (
     <div
@@ -269,20 +265,37 @@ export const MapContainer = () => {
         <FlyToScenario />
         <InvalidateOnResize />
         <RoadNetworkLayer visible={showRoadNetwork} onLoadingChange={setRoadNetworkLoading} />
-        <SumoNetworkLayer visible={showSumoNetwork} onSelectFeature={select} selectedId={selection?.id} />
+        <SumoNetworkLayer
+          visible={showSumoNetwork}
+          selectedId={selection?.id}
+          callesModificadas={callesModificadas}
+          semaforosModificados={semaforosModificados}
+          onCalleClick={(id, calle) =>
+            select({
+              kind: 'edge',
+              id,
+              baseProps: {
+                velocidad_max: calle.velocidad,
+                carriles: calle.carriles,
+                nombre_calle: `${calle.tipo || ''} ${id}`.trim(),
+              },
+            })
+          }
+          onSemaforoClick={(id, semaforo) =>
+            select({
+              kind: 'junction',
+              id,
+              baseProps: {
+                calles_entrantes: semaforo.entrantes,
+                calles_salientes: semaforo.salientes,
+                programas: semaforo.programas,
+              },
+            })
+          }
+        />
       </LeafletMap>
-<<<<<<< HEAD
       <MapLegend visible={showSumoNetwork} />
       <RoadEditorPanel />
-=======
-
-      {capaSumoVisible && <SimularBoton />}
-      <BottomProgressBar />
-
-      {capaSumoVisible && seleccion && (
-        <EdicionPanel seleccion={seleccion} onClose={() => setSeleccion(null)} />
-      )}
->>>>>>> prueba
     </div>
   );
 };

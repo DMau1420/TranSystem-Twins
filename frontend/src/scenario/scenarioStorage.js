@@ -108,70 +108,11 @@ export function normalizeScenario(s, projectId = null) {
 }
 
 export async function getScenario(id) {
-<<<<<<< HEAD
   return readAll()[id] ?? null;
-=======
-  const token = getToken();
-  if (token) {
-    try {
-      const res = await fetch(`${API_BASE}/escenarios/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const s = await res.json();
-        return normalizeScenario(s);
-      }
-    } catch (e) {
-      console.warn("Fallo getScenario backend", e);
-    }
-  }
-  const local = readAll()[id];
-  return local ? normalizeScenario(local) : null;
->>>>>>> prueba
 }
 
 export async function saveScenario(scenario) {
   const saved = { ...scenario, updatedAt: new Date().toISOString() };
-<<<<<<< HEAD
-=======
-  if (token) {
-    try {
-      let res;
-      const isNew = !scenario.id || typeof scenario.id === 'string';
-      let zonaGeom = saved.zona_geom;
-      if (!zonaGeom && saved.features?.zones?.[0]?.geoJson) {
-        zonaGeom = saved.features.zones[0].geoJson;
-      }
-      const payload = {
-        nombre: saved.name || saved.nombre,
-        zona_geom: zonaGeom || null,
-        proyecto_id: saved.projectId || saved.proyecto_id,
-        demanda_vehicular: saved.demandaVehicular ?? 100,
-        duracion_segundos: saved.duracionSegundos ?? 3600,
-      };
-      
-      if (isNew) {
-        res = await fetch(`${API_BASE}/escenarios/crear`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-      } else {
-        res = await fetch(`${API_BASE}/escenarios/modificar/${saved.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-      }
-      
-      if (res.ok) {
-        const s = await res.json();
-        return normalizeScenario({ ...saved, ...s });
-      }
-    } catch (e) {
-      console.warn("Fallo saveScenario backend", e);
-    }
-  }
-
->>>>>>> prueba
   const all = readAll();
   all[saved.id] = saved;
   writeAll(all);

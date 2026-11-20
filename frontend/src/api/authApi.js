@@ -2,6 +2,7 @@
 // Endpoints de autenticación.
 // Usa API_BASE de config.js para consistencia con el resto de la app.
 import { API_BASE } from './config';
+import { authFetch } from './http';
 
 /**
  * Autentica al usuario en el backend FastAPI.
@@ -56,3 +57,14 @@ export async function registerApi({ nombre, apodo, correo, password, rol = 'Inve
 
   return data;
 }
+
+/** GET /auth/me — Obtiene el perfil del usuario autenticado. */
+export const getMeApi = (token) => authFetch('/auth/me', { token });
+
+/** PATCH /auth/me — Actualiza datos del perfil (nombre, apodo, correo, password). */
+export const updateMeApi = (token, payload) =>
+  authFetch('/auth/me', { token, method: 'PATCH', body: payload });
+
+/** DELETE /auth/me — Elimina la cuenta autenticada y sus datos en cascada. */
+export const deleteMeApi = (token) =>
+  authFetch('/auth/me', { token, method: 'DELETE' });

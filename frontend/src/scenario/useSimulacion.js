@@ -23,9 +23,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ensureEnBackend } from './backendSync';
 import { generarResultadoCoherente } from './mockResultado';
 import { crearWebSocketSimulacion, obtenerResultadoSimulacion } from '../api/simulacionApi';
-import { crearResultado } from '../api/resultadosApi';
 
-const ESTADOS_OK = new Set(['iniciando', 'corriendo', 'en_cola', 'procesando']);
+const ESTADOS_OK = new Set(['iniciando', 'corriendo', 'en_cola', 'procesando', 'simulando']);
 const ESTADOS_FINAL_OK = new Set(['completado', 'terminado', 'finalizado']);
 const ESTADOS_FINAL_ERROR = new Set(['error', 'fallido', 'fallida']);
 
@@ -34,8 +33,8 @@ const MOCK_DURACION_MS = 1800; // qué tan "tardada" se siente la simulación in
 /**
  * Hook que gestiona el ciclo de vida completo de una simulación:
  * 1. Sincroniza el escenario local con el backend (ensureEnBackend).
- * 2. Abre un WebSocket al endpoint /ws/simular.
- * 3. Al completarse, persiste el resultado en /resultados/registrar.
+ * 2. Abre un WebSocket autenticado al endpoint /ws/simular.
+ * 3. Al completarse, el backend persiste automáticamente el resultado en BD.
  * 4. Si el WebSocket falla, cae a datos simulados localmente (mock).
  *
  * Props:
@@ -52,20 +51,14 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
   const [mensaje, setMensaje] = useState('');
   const [resultado, setResultado] = useState(null);
   const [error, setError] = useState(null);
-<<<<<<< HEAD
   const wsRef = useRef(null);
   const mockTimersRef = useRef([]); // setTimeout/setInterval ids del fallback inventado
-=======
-
-  const wsRef = useRef(null);
-  const mockTimersRef = useRef([]);
 
   // Ref para mantener siempre las props más recientes sin disparar re-creaciones.
   const propsRef = useRef({ token, scenario, features, nombreProyectoLocal, save });
   useEffect(() => {
     propsRef.current = { token, scenario, features, nombreProyectoLocal, save };
   });
->>>>>>> prueba
 
   const limpiarMockTimers = () => {
     mockTimersRef.current.forEach(clearTimeout);
@@ -98,18 +91,8 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenarioId]);
 
-<<<<<<< HEAD
   // Resultado inventado, pero coherente con la demanda/duración configuradas.
   // Simula una barra de progreso para que no se sienta instantáneo/falso.
-  const simularConDatosInventados = useCallback(() => {
-    setEstado('simulando');
-    const pasos = [20, 45, 70, 90];
-    pasos.forEach((pct, i) => {
-      const t = setTimeout(() => setProgreso(pct), (MOCK_DURACION_MS / (pasos.length + 1)) * (i + 1));
-      mockTimersRef.current.push(t);
-    });
-=======
-  // ── Fallback: datos inventados localmente ─────────────────────────────────
   const simularConDatosInventados = useCallback(() => {
     setEstado('simulando');
     setMensaje('Simulando con parámetros configurados...');
@@ -120,49 +103,21 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
       { pct: 70, msg: 'Generando demanda y rutas de vehículos...' },
       { pct: 90, msg: 'Simulando tráfico en motor local...' },
     ];
-
     pasos.forEach(({ pct, msg }, i) => {
-      const t = setTimeout(
-        () => {
-          setProgreso(pct);
-          setMensaje(msg);
-        },
-        (MOCK_DURACION_MS / (pasos.length + 1)) * (i + 1)
-      );
+      const t = setTimeout(() => {
+        setProgreso(pct);
+        setMensaje(msg);
+      }, (MOCK_DURACION_MS / (pasos.length + 1)) * (i + 1));
       mockTimersRef.current.push(t);
     });
-
->>>>>>> prueba
     const final = setTimeout(() => {
-      const inventado = generarResultadoCoherente(scenario);
+      const inventado = generarResultadoCoherente(currentScenario);
       setProgreso(100);
       setMensaje('Simulación completada con éxito.');
       setResultado(inventado);
       setEstado('completado');
     }, MOCK_DURACION_MS);
-<<<<<<< HEAD
-=======
-
->>>>>>> prueba
     mockTimersRef.current.push(final);
-  }, [scenario]);
-
-  // ── Guarda el resultado en el backend ─────────────────────────────────────
-  const guardarResultadoEnBackend = useCallback(async (escenarioId, resultadoData) => {
-    const { token } = propsRef.current;
-    if (!token || !escenarioId || !resultadoData) return;
-    try {
-      await crearResultado(token, {
-        escenario_id: escenarioId,
-        tiempo_promedio_espera: resultadoData.espera_promedio ?? resultadoData.tiempo_promedio_espera ?? null,
-        velocidad_promedio: resultadoData.velocidad_promedio ?? null,
-        longitud_max_fila: resultadoData.fila_maxima ?? resultadoData.longitud_max_fila ?? null,
-        vehiculos_atendidos: resultadoData.vehiculos_atendidos ?? null,
-      });
-    } catch (err) {
-      // El guardado del resultado es best-effort: no cancela el flujo si falla.
-      console.warn('[useSimulacion] No se pudo persistir el resultado en el backend:', err.message);
-    }
   }, []);
 
   // ── Simulación principal ──────────────────────────────────────────────────
@@ -173,26 +128,21 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
     setMensaje('Iniciando proceso de simulación...');
     limpiarMockTimers();
 
-<<<<<<< HEAD
-=======
-    const { token, scenario, features, nombreProyectoLocal, save } = propsRef.current;
+    const { token: currentToken, scenario: currentScenario, features: currentFeatures, nombreProyectoLocal: currentProjectName, save: currentSave } = propsRef.current;
 
-    // 1. Sincronizar con el backend
->>>>>>> prueba
     setEstado('sincronizando');
     setMensaje('Sincronizando escenario con el backend...');
     let backend;
     try {
-      backend = await ensureEnBackend({ token, scenario, features, nombreProyectoLocal, save });
+      backend = await ensureEnBackend({
+        token: currentToken,
+        scenario: currentScenario,
+        features: currentFeatures,
+        nombreProyectoLocal: currentProjectName,
+        save: currentSave,
+      });
     } catch (err) {
-<<<<<<< HEAD
-      // El backend todavía no tiene /escenarios/crear (ni /resultados) — ver
-      // nota de arriba. En vez de tronar con error, seguimos con datos
-      // inventados para no bloquear el resto del flujo.
-      console.warn('No se pudo sincronizar con el backend, usando datos inventados:', err.message);
-=======
       console.warn('[useSimulacion] No se pudo sincronizar con el backend, usando datos inventados:', err.message);
->>>>>>> prueba
       simularConDatosInventados();
       return;
     }
@@ -201,22 +151,15 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
     try {
       setEstado('conectando');
       setMensaje('Conectando al microservicio de simulación SUMO...');
-      const ws = crearWebSocketSimulacion(token);
+      const ws = crearWebSocketSimulacion(currentToken);
       wsRef.current = ws;
 
       ws.onopen = () => {
-<<<<<<< HEAD
-        // Se manda el id del escenario ya persistido en el backend; algunos
-        // backends esperan además el payload completo — si el tuyo lo
-        // requiere, agrégalo aquí junto a escenario_id.
-        ws.send(JSON.stringify({ escenario_id: backend.escenarioId }));
-=======
         ws.send(JSON.stringify({
           escenario_id: backend.escenarioId,
-          duracion_segundos: scenario.duracionSegundos ?? 3600,
-          demanda_vehicular: scenario.demandaVehicular ?? 100,
+          duracion_segundos: currentScenario.duracionSegundos ?? 3600,
+          demanda_vehicular: currentScenario.demandaVehicular ?? 100,
         }));
->>>>>>> prueba
         setEstado('simulando');
         setMensaje('Enviada solicitud a SUMO, esperando inicio...');
       };
@@ -236,17 +179,15 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
         if (liveText) setMensaje(liveText);
 
         if (ESTADOS_FINAL_OK.has(msg.status)) {
-          // Intenta obtener el resultado detallado del backend si el WS no lo envió
+          // Intenta obtener el resultado detallado del backend si el WS no lo envió.
+          // El backend ya persiste el resultado automáticamente al completar /ws/simular.
           let resultadoFinal = msg.resultado ?? null;
-          if (!resultadoFinal && token) {
+          if (!resultadoFinal && currentToken) {
             try {
-              resultadoFinal = await obtenerResultadoSimulacion(token);
+              resultadoFinal = await obtenerResultadoSimulacion(currentToken);
             } catch {
               /* fallback: sin resultado del backend */
             }
-          }
-          if (resultadoFinal) {
-            await guardarResultadoEnBackend(backend.escenarioId, resultadoFinal);
           }
           setProgreso(100);
           setMensaje(msg.message || 'Simulación completada exitosamente.');
@@ -259,17 +200,12 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
           setEstado('error');
           ws.close();
         } else if (!ESTADOS_OK.has(msg.status)) {
-<<<<<<< HEAD
           // status desconocido: lo mostramos igual para no perder información
-          console.warn('Estado de simulación no reconocido:', msg.status);
-=======
           console.warn('[useSimulacion] Estado de simulación no reconocido:', msg.status);
->>>>>>> prueba
         }
       };
 
-      // El WS tampoco existe todavía en el backend real — mismo criterio que
-      // arriba: si no conecta, caemos a datos inventados en vez de error.
+      // Si no conecta el WS, caemos a datos inventados en vez de error.
       ws.onerror = () => {
         console.warn('[useSimulacion] No se pudo conectar al WebSocket, usando datos inventados.');
         wsRef.current = null;
@@ -283,11 +219,7 @@ export function useSimulacion({ token, scenario, features, nombreProyectoLocal, 
       console.error('[useSimulacion] Error preparando la simulación:', err);
       simularConDatosInventados();
     }
-<<<<<<< HEAD
-  }, [token, scenario, features, nombreProyectoLocal, save, simularConDatosInventados]);
-=======
-  }, [simularConDatosInventados, guardarResultadoEnBackend]);
->>>>>>> prueba
+  }, [simularConDatosInventados]);
 
   return { estado, progreso, mensaje, resultado, error, simular, cancelar };
 }
