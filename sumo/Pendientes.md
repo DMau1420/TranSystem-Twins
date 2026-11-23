@@ -45,10 +45,10 @@ Contexto: el servidor se está refactorizando (flujos, semilla, trayectorias), a
   - [ ] Decidir si desde el servidor se genera el PDF. Hoy no se genera.
   - [ ] `patch_semaforo`: validar que `indice` exista (hoy responde `'indice'`).
 
-- [ ] **P0-6. Correr sin GUI.**
+- [X] **P0-6. Correr sin GUI.**
   `main` usa `herramientas["sumo_gui"]`: abre ventana. En Docker o servidor se cuelga. `sumo_tools` ya carga `herramientas["sumo"]`. Además `cargar_herramientas_sumo` hace `sys.exit` si falta `SUMO_HOME`.
 
-- [ ] **P0-7. `"--output.street-names true"` va como un solo argumento** en `scenario_builder._reconstruir_red` (en `data_generators` sí está bien).
+- [X] **P0-7. `"--output.street-names true"` va como un solo argumento** en `scenario_builder._reconstruir_red` (en `data_generators` sí está bien).
   Solo afecta a escenarios *con modificaciones*. *Prueba:* un escenario con +1 carril y revisar si los semáforos salen con nombre de calle.
 
 - [ ] **P0-8. Nombres de escenario sin `escape` en `reporte.py`.**

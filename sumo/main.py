@@ -138,7 +138,11 @@ def simular_escenario(escenario, red_base, herramientas, semilla_corrida=None):
     """
 
     netconvertBinary = herramientas["netconvert"]
-    sumoBinary = herramientas["sumo_gui"]
+
+    # Correr sin GUI porque trayectorias ya lo manejara
+    sumoBinary = herramientas["sumo"] 
+
+    
     semilla_usada = semilla if semilla_corrida is None else semilla_corrida
 
     print(f"Simulando escenario '{escenario['nombre']}' (semilla {semilla_usada})...")
