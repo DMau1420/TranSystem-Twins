@@ -1,9 +1,12 @@
-import asyncio
+import os
 import json
-import websockets
+import socketserver
+from http.server import SimpleHTTPRequestHandler
 
 from sumo_tools import cargar_herramientas_sumo
 from main import importar_zona, simular_escenario
+
+# NOTA: este servidor es un sustituto TEMPORAL del backend real de R1
 
 PROYECTO = {
     "id": 3,
@@ -37,173 +40,236 @@ ESCENARIO = {
     "nombre": "Situacion actual",
     "modificaciones_edges": [],
     "modificaciones_semaforos": [],
-    "demanda_vehicular": 100,
+    "demanda_vehicular": 100,   # TODO: pasar a "vehiculos_por_hora" explícito
     "duracion_segundos": 3600,
 }
 
-RED_BASE = None
-HERRAMIENTAS = None
+RED_BASE = None       # se llena la primera vez que se llama /simular
+HERRAMIENTAS = None   # se llena al arrancar el servidor
 ULTIMO_RESULTADO = None
 
-import os
-import requests
 
-def make_progress_callback(websocket, loop):
-    def on_progress(pct, msg):
+class CORSRequestHandler(SimpleHTTPRequestHandler):
+
+    def end_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        # El navegador manda esto antes de un PATCH real (preflight de CORS)
+        self.send_response(204)
+        self.end_headers()
+
+    def do_GET(self):
+        if self.path == '/red':
+            self.servir_red()
+        elif self.path == '/resultado':
+            self.servir_ultimo_resultado()
+        elif self.path == '/':
+            self.path = '/index.html'
+            super().do_GET()
+        else:
+            super().do_GET()
+
+    def do_PATCH(self):
+        if self.path.startswith('/infraestructura/'):
+            self.guardar_modificacion_edge()
+        elif self.path.startswith('/semaforo/'):
+            self.guardar_modificacion_semaforo()
+        else:
+            self.responder_error(404, "Ruta no encontrada")
+
+    def do_POST(self):
+        if self.path == '/simular':
+            self.disparar_simulacion()
+        elif self.path == '/escenario':
+            self.configurar_escenario()
+        elif self.path == '/escenario/reset':
+            self.reiniciar_modificaciones()
+        else:
+            self.responder_error(404, "Ruta no encontrada")
+
+    # ------------------------------------------------------------------
+    # Handlers
+    # ------------------------------------------------------------------
+
+    def servir_red(self):
         try:
-            asyncio.run_coroutine_threadsafe(
-                websocket.send(json.dumps({
-                    "action": "progress",
-                    "progress": pct,
-                    "message": msg
-                })),
-                loop
-            )
+            if PROYECTO["geojson_url"] is None:
+                self.responder_error(
+                    409,
+                    "La zona todavía no se ha importado. Da clic en 'Simular escenario' "
+                    "una primera vez para descargarla."
+                )
+                return
+
+            with open(PROYECTO["geojson_url"], "r", encoding="utf-8") as f:
+                red_geojson = json.load(f)
+
+            self.responder_json(red_geojson)
+            total = len(red_geojson.get("features", []))
+            print(f"Respuesta /red enviada. Total de features: {total}")
+
         except Exception as e:
-            print(f"Error reportando progreso: {e}")
-    return on_progress
+            print(f"ERROR EN /red: {e}")
+            self.responder_error(500, str(e))
 
-async def handler(websocket):
-    global RED_BASE, ULTIMO_RESULTADO
-    async for message in websocket:
+    def guardar_modificacion_edge(self):
         try:
-            req = json.loads(message)
-            action = req.get("action")
-            
-            if action == "get_red":
-                if PROYECTO["geojson_url"] is None:
-                    await websocket.send(json.dumps({"error": "La zona todavía no se ha importado", "status": 409}))
-                    continue
-                with open(PROYECTO["geojson_url"], "r", encoding="utf-8") as f:
-                    red_geojson = json.load(f)
-                await websocket.send(json.dumps({"action": "red_response", "data": red_geojson}))
-                
-            elif action == "patch_infraestructura":
-                edge_id = req.get("edge_id")
-                datos = req.get("datos", {})
-                modificaciones = ESCENARIO["modificaciones_edges"]
-                modificaciones[:] = [m for m in modificaciones if m["edge_id"] != edge_id]
-                modificaciones.append({
-                    "edge_id": edge_id,
-                    "carriles": datos.get("carriles"),
-                    "velocidad_max": datos.get("velocidad_max"),
+            edge_id = self.path.rsplit('/', 1)[-1]
+            largo = int(self.headers.get('Content-Length', 0))
+            cuerpo = self.rfile.read(largo)
+            datos = json.loads(cuerpo) if cuerpo else {}
+
+            modificaciones = ESCENARIO["modificaciones_edges"]
+            # Si ya existía una modificación para este edge, se reemplaza
+            modificaciones[:] = [m for m in modificaciones if m["edge_id"] != edge_id]
+            modificaciones.append({
+                "edge_id": edge_id,
+                "carriles": datos.get("carriles"),
+                "velocidad_max": datos.get("velocidad_max"),
+            })
+
+            print(f"Modificación guardada -> edge {edge_id}: {datos}")
+            self.responder_json({"ok": True, "edge_id": edge_id, "total_modificaciones": len(modificaciones)})
+
+        except Exception as e:
+            print(f"ERROR EN PATCH /infraestructura: {e}")
+            self.responder_error(500, str(e))
+
+    def guardar_modificacion_semaforo(self):
+        """
+        Body esperado, ej:
+            {
+                "fases": [
+                    {"indice": 0, "duracion": 45},
+                    {"indice": 2, "duracion": 4, "estado": "yyyGrrrryyyGrrrr"}
+                ]
+            }
+        "estado" es opcional -- si no se manda, scenario_builder.py deja el
+        state original de esa fase intacto y solo cambia la duración.
+        """
+        try:
+            tls_id = self.path.rsplit('/', 1)[-1]
+            largo = int(self.headers.get('Content-Length', 0))
+            cuerpo = self.rfile.read(largo)
+            datos = json.loads(cuerpo) if cuerpo else {}
+
+            fases_entrada = datos.get("fases", [])
+            fases_normalizadas = []
+            for fase in fases_entrada:
+                fases_normalizadas.append({
+                    "indice": fase["indice"],
+                    "duracion": fase.get("duracion"),
+                    "estado": fase.get("estado"),
                 })
-                await websocket.send(json.dumps({"action": "infra_response", "ok": True, "edge_id": edge_id}))
-                
-            elif action == "patch_semaforo":
-                tls_id = req.get("tls_id")
-                datos = req.get("datos", {})
-                fases_entrada = datos.get("fases", [])
-                fases_normalizadas = []
-                for fase in fases_entrada:
-                    fases_normalizadas.append({
-                        "indice": fase["indice"],
-                        "duracion": fase.get("duracion"),
-                        "estado": fase.get("estado"),
-                    })
-                modificaciones = ESCENARIO["modificaciones_semaforos"]
-                modificaciones[:] = [m for m in modificaciones if m["tls_id"] != tls_id]
-                modificaciones.append({"tls_id": tls_id, "fases": fases_normalizadas})
-                await websocket.send(json.dumps({"action": "semaforo_response", "ok": True, "tls_id": tls_id}))
-                
-            elif action == "simular":
-                payload = req.get("payload", {})
-                escenario_id = payload.get("escenario_id") if isinstance(payload, dict) else None
-                escenario_actual = dict(ESCENARIO)
-                proyecto_actual = dict(PROYECTO)
 
-                await websocket.send(json.dumps({
-                    "action": "progress",
-                    "progress": 5,
-                    "message": "Inicializando motor de simulación SUMO..."
-                }))
+            modificaciones = ESCENARIO["modificaciones_semaforos"]
+            # Si ya existía una modificación para este semáforo, se reemplaza
+            modificaciones[:] = [m for m in modificaciones if m["tls_id"] != tls_id]
+            modificaciones.append({"tls_id": tls_id, "fases": fases_normalizadas})
 
-                if isinstance(payload, dict):
-                    if payload.get("duracion_segundos"):
-                        escenario_actual["duracion_segundos"] = int(payload["duracion_segundos"])
-                    if payload.get("demanda_vehicular"):
-                        escenario_actual["demanda_vehicular"] = int(payload["demanda_vehicular"])
+            print(f"Modificación de semáforo guardada -> tls {tls_id}: {fases_normalizadas}")
+            self.responder_json({"ok": True, "tls_id": tls_id, "total_modificaciones": len(modificaciones)})
 
-                if escenario_id:
-                    backend_url = os.getenv("BACKEND_URL", "http://backend:8000")
-                    if not backend_url.startswith("http"):
-                        backend_url = f"http://{backend_url}"
-                    token = payload.get("token") if isinstance(payload, dict) else None
-                    headers = {"Authorization": f"Bearer {token}"} if token else {}
-                    try:
-                        r_esc = requests.get(f"{backend_url}/escenarios/{escenario_id}", headers=headers, timeout=5)
-                        if r_esc.status_code == 200:
-                            esc_data = r_esc.json()
-                            escenario_actual["id"] = esc_data["id"]
-                            escenario_actual["proyecto_id"] = esc_data["proyecto_id"]
-                            escenario_actual["nombre"] = esc_data.get("nombre", "Escenario")
-                            escenario_actual["modificaciones_edges"] = esc_data.get("modificaciones_edges", [])
-                            escenario_actual["modificaciones_semaforos"] = esc_data.get("modificaciones_semaforos", [])
-                            if not (isinstance(payload, dict) and payload.get("demanda_vehicular")):
-                                escenario_actual["demanda_vehicular"] = esc_data.get("demanda_vehicular", 100)
-                            if not (isinstance(payload, dict) and payload.get("duracion_segundos")):
-                                escenario_actual["duracion_segundos"] = esc_data.get("duracion_segundos", 3600)
-
-                            r_proj = requests.get(f"{backend_url}/proyectos/{esc_data['proyecto_id']}", headers=headers, timeout=5)
-                            if r_proj.status_code == 200:
-                                proj_data = r_proj.json()
-                                proyecto_actual["id"] = proj_data["id"]
-                                proyecto_actual["nombre"] = proj_data.get("nombre", "Proyecto")
-                                if proj_data.get("geometria"):
-                                    proyecto_actual["geometria"] = proj_data["geometria"]
-                                proyecto_actual["netxml_base_url"] = proj_data.get("netxml_base_url")
-                                proyecto_actual["geojson_url"] = proj_data.get("geojson_url")
-                                proyecto_actual["osm_file_url"] = proj_data.get("osm_file_url")
-                    except Exception as err:
-                        print(f"Aviso: usando fallback local para escenario {escenario_id}: {err}")
-
-                loop = asyncio.get_running_loop()
-                prog_cb = make_progress_callback(websocket, loop)
-
-                def run_sim():
-                    global RED_BASE
-                    red_base_actual = RED_BASE
-                    if red_base_actual is None or not red_base_actual.get("netxml_base_url"):
-                        prog_cb(10, f"Importando zona para '{proyecto_actual['nombre']}'...")
-                        red_base_actual = importar_zona(proyecto_actual, HERRAMIENTAS, on_progress=prog_cb)
-                        proyecto_actual["netxml_base_url"] = red_base_actual["netxml_base_url"]
-                        proyecto_actual["geojson_url"] = red_base_actual["geojson_url"]
-                        proyecto_actual["osm_file_url"] = red_base_actual["osm_file_url"]
-                        RED_BASE = red_base_actual
-
-                    indicadores = simular_escenario(escenario_actual, red_base_actual, HERRAMIENTAS, on_progress=prog_cb)
-                    return indicadores
-
-                indicadores = await asyncio.to_thread(run_sim)
-                ULTIMO_RESULTADO = indicadores
-                await websocket.send(json.dumps({
-                    "action": "simular_response",
-                    "status": "completado",
-                    "progress": 100,
-                    "message": "Simulación completada exitosamente",
-                    "data": indicadores
-                }))
-                
-            elif action == "get_resultado":
-                if ULTIMO_RESULTADO is None:
-                    await websocket.send(json.dumps({"error": "Todavía no se ha corrido ninguna simulación", "status": 404}))
-                else:
-                    await websocket.send(json.dumps({"action": "resultado_response", "data": ULTIMO_RESULTADO}))
-            else:
-                await websocket.send(json.dumps({"error": "Unknown action"}))
-                
         except Exception as e:
-            print(f"Error en websocket handler: {e}")
-            await websocket.send(json.dumps({"error": str(e)}))
+            print(f"ERROR EN PATCH /semaforo: {e}")
+            self.responder_error(500, str(e))
 
-async def main():
-    global HERRAMIENTAS
-    print("Cargando herramientas de SUMO...")
-    HERRAMIENTAS = cargar_herramientas_sumo()
-    
-    print("Servidor WebSocket iniciado en ws://0.0.0.0:8000")
-    async with websockets.serve(handler, "0.0.0.0", 8000):
-        await asyncio.Future()
+    def disparar_simulacion(self):
+        global RED_BASE, ULTIMO_RESULTADO
+        try:
+            if RED_BASE is None:
+                print("Primera simulación de este proyecto: importando zona desde OSM...")
+                RED_BASE = importar_zona(PROYECTO, HERRAMIENTAS)
+                PROYECTO["netxml_base_url"] = RED_BASE["netxml_base_url"]
+                PROYECTO["geojson_url"] = RED_BASE["geojson_url"]
+                PROYECTO["osm_file_url"] = RED_BASE["osm_file_url"]
+            else:
+                print("Reutilizando la red base ya importada (no se vuelve a llamar a Overpass).")
+
+            indicadores = simular_escenario(ESCENARIO, RED_BASE, HERRAMIENTAS)
+            ULTIMO_RESULTADO = indicadores
+            self.responder_json(indicadores)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.responder_error(500, f"Error al simular: {e}")
+
+    def servir_ultimo_resultado(self):
+        if ULTIMO_RESULTADO is None:
+            self.responder_error(404, "Todavía no se ha corrido ninguna simulación")
+        else:
+            self.responder_json(ULTIMO_RESULTADO)
+
+
+    def configurar_escenario(self):
+        """Cambia parámetros generales del escenario (id, demanda, % de pesados...)."""
+        try:
+            largo = int(self.headers.get('Content-Length', 0))
+            cuerpo = self.rfile.read(largo)
+            datos = json.loads(cuerpo) if cuerpo else {}
+
+            permitidos = ("id", "nombre", "demanda_vehicular", "porcentaje_pesados", "duracion_segundos")
+            for clave in permitidos:
+                if clave in datos:
+                    ESCENARIO[clave] = datos[clave]
+
+            actual = {k: ESCENARIO.get(k) for k in permitidos}
+            print(f"Escenario configurado: {actual}")
+            self.responder_json({"ok": True, "escenario": actual})
+
+        except Exception as e:
+            print(f"ERROR EN POST /escenario: {e}")
+            self.responder_error(500, str(e))
+
+    def reiniciar_modificaciones(self):
+        """Borra todas las modificaciones acumuladas de carriles y semáforos."""
+        largo = int(self.headers.get('Content-Length', 0))
+        self.rfile.read(largo)  # se descarta el cuerpo
+        ESCENARIO["modificaciones_edges"].clear()
+        ESCENARIO["modificaciones_semaforos"].clear()
+        print("Modificaciones reiniciadas")
+        self.responder_json({"ok": True})
+
+    # ------------------------------------------------------------------
+    # Utilidades de respuesta
+    # ------------------------------------------------------------------
+
+    def responder_json(self, data, status=200):
+        cuerpo = json.dumps(data).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(cuerpo)
+
+    def responder_error(self, status, mensaje):
+        self.responder_json({"error": mensaje}, status=status)
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    PORT = 8000
+
+    print("Cargando herramientas de SUMO...")
+    HERRAMIENTAS = cargar_herramientas_sumo()
+
+    print(f"Servidor iniciado en http://localhost:{PORT}")
+    print("Rutas disponibles:")
+    print("  GET  /                         -> index.html")
+    print("  GET  /red                      -> geojson de la red del proyecto")
+    print("  PATCH /infraestructura/<edge_id> -> guarda carriles/velocidad de una calle")
+    print("  PATCH /semaforo/<tls_id>       -> guarda fases modificadas de un semáforo")
+    print("  POST /simular                  -> corre el pipeline completo y regresa indicadores")
+    print("  GET  /resultado                -> último resultado calculado")
+    print("  POST /escenario                -> cambia id, demanda, % pesados del escenario")
+    print("  POST /escenario/reset          -> borra las modificaciones acumuladas")
+    print("Presiona Ctrl+C para detener")
+
+    with socketserver.TCPServer(("", PORT), CORSRequestHandler) as httpd:
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nServidor detenido")

@@ -1,5 +1,4 @@
-
-import random
+import pathlib
 import json
 import os
 import subprocess
@@ -8,16 +7,10 @@ import xml.etree.ElementTree as ET
 import time
 import requests
 import sumolib
+import random
 
-# Temporalmente desactivada hasta que ya  nos conectemos bien los 3 modulos
 
 def cargar_escenario():
-
-    """
-    with open('test.json', 'r', encoding='utf-8') as archivo:
-        data = json.load(archivo)
-    return data
-    """
 
     backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
     if not backend_url.startswith("http"):
@@ -128,7 +121,7 @@ def conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta_salida, archi
 
         # --- Semáforos: conservar info real de OSM ---
         "--tls.guess-signals",
-        "--tls.default-type", "actuated",
+        "--tls.default-type", "static",
         "--tls.cycle.time", "90",
 
         # --- Proyección explícita  ---
@@ -137,6 +130,9 @@ def conversor_osm_to_netxml(netconvertBinary, archivo_osm, carpeta_salida, archi
         # --- Precisión numérica alta ---
         "--precision", "3",
         "--precision.geo", "6",
+
+        # Traer el nombre de las calles
+        "--output.street-names", "true",
 
 
         # --- Detalle visual/físico en nodos complejos (glorietas, intercambios) ---
@@ -381,51 +377,169 @@ def conversor_net_to_geojson(ruta_net_xml, carpeta_salida, nombre_archivo="red_b
 
     return ruta_geojson
 
-def generar_rutas_aleatorias(random_trips, archivo_red_vial, demanda_vehicular, carpeta_salida, nombre_archivo="demanda.rou.xml"):
-    ruta_salida = carpeta_salida / nombre_archivo
-
-    begin_time = 0
-    tiempo_simulacion = 3600
-    #  Calcular el periodo para tener exactamente 'demanda_vehicular' vehículos
-    periodo = tiempo_simulacion / demanda_vehicular
-    
-    comando = [
-        "python", random_trips,
-        "-n", archivo_red_vial,
-        "-b", str(begin_time),        
-        "-e", str(tiempo_simulacion),   
-        "-p", str(periodo),             
-        "--route-file", ruta_salida,
-        "--validate",                   
-        "--random"                       
-    ]
-    try:
-        subprocess.run(comando, check=True)
-        print(f" Rutas vehiculares generadas en : {ruta_salida}")
-        
-        return ruta_salida
-
-    except subprocess.CalledProcessError as e:
-        print("Error durante la creacion de rutas:" +  "\n Error:" ,{e})
-        print(e.stderr, file=sys.stderr)
+def generar_rutas_aleatorias(random_trips, archivo_red_vial, demanda_vehicular, carpeta_salida,
+                            nombre_archivo="demanda.rou.xml", semilla=42, tiempo_insercion=3600,
+                            porcentaje_pesados=0.0):
+    """
+    Genera viajes aleatorios con randomTrips.py y los guarda en un .rou.xml.
+    - demanda_vehicular: vehículos POR HORA.
+    Regresa la ruta del .rou.xml, o None si algo falló.
+    """
+    if demanda_vehicular is None or demanda_vehicular <= 0:
+        print("Error: la demanda vehicular debe ser mayor que 0 (veh/h).")
         return None
 
-def crear_sumo_config(net, rou, carpeta_salida, nombre_config="simulacion.sumocfg"):
-    # Crear el elemento raíz
-    root = ET.Element("configuration")
+    carpeta_salida = pathlib.Path(carpeta_salida)
+    ruta_salida = carpeta_salida / nombre_archivo
+    ruta_viajes = carpeta_salida / "viajes.trips.xml"
 
-    ruta_config = carpeta_salida / nombre_config
-    # Sección de entrada 
+    # demanda en veh/h -> un vehículo cada (3600 / demanda) segundos
+    periodo = 3600 / demanda_vehicular
+    esperados = round(demanda_vehicular * tiempo_insercion / 3600)
+
+    comando = [
+        sys.executable, str(random_trips),
+        "-n", str(archivo_red_vial),
+        "-b", "0",
+        "-e", str(tiempo_insercion),
+        "-p", f"{periodo:.4f}",
+        "-o", str(ruta_viajes), 
+        "--route-file", str(ruta_salida),
+        "--seed", str(semilla),
+        "--validate",
+    ]
+
+    try:
+        resultado = subprocess.run(comando, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print("Error durante la creación de rutas (randomTrips):")
+        print(e.stderr or e.stdout)
+        return None
+    except FileNotFoundError as e:
+        print(f"No se encontró randomTrips.py o el intérprete de Python: {e}")
+        return None
+
+    if resultado.stderr:
+        print("Advertencias de randomTrips:\n", resultado.stderr[-500:])
+
+    # Contar cuántos viajes quedaron realmente después de --validate
+    try:
+        root = ET.parse(ruta_salida).getroot()
+    except (ET.ParseError, FileNotFoundError) as e:
+        print(f"No se pudo leer el archivo de rutas generado: {e}")
+        return None
+
+    generados = len(root.findall("vehicle")) + len(root.findall("trip"))
+    print(f"Rutas generadas en: {ruta_salida} (semilla {semilla})")
+    print(f"  Vehículos esperados: {esperados} | generados: {generados}")
+    if generados < 0.95 * esperados:
+        print("  AVISO: --validate descartó más del 5% de los viajes; "
+            "la demanda real es menor a la pedida.")
+
+
+    composicion = asignar_tipos_vehiculo(ruta_salida, porcentaje_pesados, semilla)
+    print(f"Composicion vehicular: {composicion}")
+    return ruta_salida
+
+
+# ===============================================================
+#           TIPOS DE VEHICULO
+# ===============================================================
+
+def asignar_tipos_vehiculo(ruta_rou, porcentaje_pesados=0.0, semilla=42):
+    """Define los vType (auto y camión) dentro de un archivo .rou.xml de SUMO
+
+    y asigna a cada viaje uno de los dos tipos de forma aleatoria reproducible.
+
+    Regresa un diccionario con el conteo final: {"auto": n, "camion": n}.
+    """
+
+
+    if not 0 <= porcentaje_pesados <= 100:
+        raise ValueError("porcentaje_pesados debe estar entre 0 y 100")
+
+    #  Cargar y parsear el archivo XML
+    tree = ET.parse(ruta_rou)
+    root = tree.getroot()
+
+    #  Obtener y contar todos los viajes (<vehicle> y <trip>)
+    viajes = root.findall("vehicle") + root.findall("trip")
+    total_viajes = len(viajes)
+
+
+    n_pesados = round(total_viajes * porcentaje_pesados / 100)
+    generador = random.Random(semilla)
+    # Definir que vehciulos seran  de tipo pesado
+    indices_pesados = set(generador.sample(range(total_viajes), n_pesados))
+
+    #  Asignar los tipos recorriendo la lista de viajes
+    for idx, viaje in enumerate(viajes):
+        viaje.set("type", "camion" if idx in indices_pesados else "auto")
+
+    # 6. Definición de configuraciones para SUMO
+    TIPOS_VEHICULO = {
+        "auto": {
+            "vClass": "passenger", "length": "4.5", "width": "1.8",
+            "maxSpeed": "33.33", "accel": "2.6", "decel": "4.5",
+            "guiShape": "passenger", "color": "0,114,178",
+        },
+        "camion": {
+            "vClass": "truck", "length": "12", "width": "2.5",
+            "maxSpeed": "25", "accel": "1.3", "decel": "4.0",
+            "guiShape": "truck", "color": "213,94,0",
+        },
+    }
+
+    # 7. Limpiar vTypes antiguos e inyectar los nuevos al inicio del archivo
+    for viejo in root.findall("vType"):
+        root.remove(viejo)
+        
+    for posicion, (id_tipo, atributos) in enumerate(TIPOS_VEHICULO.items()):
+        root.insert(posicion, ET.Element("vType", id=id_tipo, **atributos))
+
+    # 8. Formatear estéticamente y guardar el archivo
+    ET.indent(tree, space="    ", level=0)
+    tree.write(ruta_rou, encoding="utf-8", xml_declaration=True)
+
+    # 9. Retornar el resumen de vehículos generados
+    return {"auto": total_viajes - n_pesados, "camion": n_pesados}
+
+
+def crear_sumo_config(net, rou, carpeta_salida, nombre_config="simulacion.sumocfg",
+                    tiempo_maximo=7200, paso=1.0, semilla=42, tiempo_teleport=300):
+    """
+    Genera el .sumocfg del escenario con los parámetros de simulación
+    explícitos (así quedan documentados y no dependen de los valores por
+    defecto de SUMO).
+
+    - tiempo_maximo: segundo en que SUMO se detiene. Debe ser MAYOR que la
+    ventana de inserción de la demanda, para que los últimos vehículos
+    alcancen a terminar su viaje.
+    - paso: step-length en segundos.
+    - semilla: semilla del generador aleatorio de SUMO (afecta, por ejemplo,
+    la imperfección de los conductores).
+    - tiempo_teleport: segundos que un vehículo puede estar atascado antes de
+    que SUMO lo teletransporte. 300 es el valor por defecto de SUMO; se deja
+    explícito para documentarlo. Con -1 se desactiva.
+    """
+    root = ET.Element("configuration")
+    ruta_config = pathlib.Path(carpeta_salida) / nombre_config
+
     input_node = ET.SubElement(root, "input")
-    ET.SubElement(input_node, "net-file", value=str(net))
-    ET.SubElement(input_node, "route-files", value=str(rou))
-    
-    # Sección de tiempo
+    ET.SubElement(input_node, "net-file", value=str(pathlib.Path(net).resolve()))
+    ET.SubElement(input_node, "route-files", value=str(pathlib.Path(rou).resolve()))
+
     time_node = ET.SubElement(root, "time")
     ET.SubElement(time_node, "begin", value="0")
-    ET.SubElement(time_node, "end", value="3600")
-    
-    # Guardar el archivo XML formateado
+    ET.SubElement(time_node, "end", value=str(tiempo_maximo))
+    ET.SubElement(time_node, "step-length", value=str(paso))
+
+    processing_node = ET.SubElement(root, "processing")
+    ET.SubElement(processing_node, "time-to-teleport", value=str(tiempo_teleport))
+
+    random_node = ET.SubElement(root, "random_number")
+    ET.SubElement(random_node, "seed", value=str(semilla))
+
     tree = ET.ElementTree(root)
     ET.indent(tree, space="    ", level=0)
     tree.write(ruta_config, encoding="utf-8", xml_declaration=True)
