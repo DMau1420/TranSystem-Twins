@@ -106,8 +106,15 @@ def _exportar_red_base(netconvert, ruta_net_base, carpeta):
 
 def _reconstruir_red(netconvert, archivos, archivo_tll, ruta_red):
     """Arma el .net.xml del escenario a partir de los archivos planos ya modificados."""
-    comando = [netconvert, "--node-files", archivos["nod"], "--edge-files", archivos["edg"],
-            "--connection-files", archivos["con"], "--output-file", str(ruta_red), "--output.street-names true" ]
+
+    comando = [netconvert, 
+            "--node-files", archivos["nod"], 
+            "--edge-files", archivos["edg"],
+            "--connection-files", archivos["con"], 
+            "--output-file", str(ruta_red), 
+            "--output.street-names", "true" ]
+    
+    
     if archivo_tll:
         comando += ["--tllogic-files", archivo_tll]
     print("Reconstruyendo la red del escenario...")
