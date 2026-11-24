@@ -1,0 +1,104 @@
+/* Estilos compartidos de los bloques nuevos (resultados, demanda).
+   Usa los tokens SYS_CORE si existen; si no, cae a los valores de la paleta. */
+.sysb {
+  --c-cyan: var(--sys-cyan, #2de3ff);
+  --c-magenta: var(--sys-magenta, #ff2d6f);
+  --c-amber: var(--sys-amber, #ffb020);
+  --c-bg: var(--sys-bg, #07090d);
+  --c-bg-2: var(--sys-bg-2, #0d1117);
+  --c-line: var(--sys-line, rgba(45, 227, 255, 0.28));
+  --c-text: var(--sys-text, #d7e4ea);
+  --c-dim: var(--sys-dim, #7f95a0);
+
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--c-text);
+}
+
+.sysb-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-cyan);
+  letter-spacing: 0.04em;
+}
+
+.sysb-muted {
+  color: var(--c-dim);
+}
+
+.sysb-btn {
+  font: inherit;
+  padding: 5px 10px;
+  color: var(--c-cyan);
+  background: transparent;
+  border: 1px solid var(--c-line);
+  cursor: pointer;
+}
+.sysb-btn:hover:not(:disabled) {
+  background: rgba(45, 227, 255, 0.12);
+}
+.sysb-btn:focus-visible,
+.sysb-input:focus-visible {
+  outline: 2px solid var(--c-cyan);
+  outline-offset: 1px;
+}
+.sysb-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sysb-btn--danger {
+  color: var(--c-magenta);
+  border-color: rgba(255, 45, 111, 0.45);
+}
+.sysb-btn--danger:hover:not(:disabled) {
+  background: rgba(255, 45, 111, 0.14);
+}
+
+.sysb-input {
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  color: var(--c-text);
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-line);
+}
+.sysb-input[aria-invalid='true'] {
+  border-color: var(--c-magenta);
+}
+
+.sysb-error {
+  color: var(--c-magenta);
+}
+.sysb-warn {
+  color: var(--c-amber);
+}
+
+.sysb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sysb-table th,
+.sysb-table td {
+  padding: 5px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--c-line);
+  vertical-align: top;
+}
+.sysb-table th {
+  color: var(--c-dim);
+  font-weight: 500;
+}
+
+.sysb-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sysb * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

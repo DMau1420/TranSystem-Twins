@@ -4,6 +4,8 @@ import sunIcon from '../../assets/icons/sun-day.jpg';
 import moonIcon from '../../assets/icons/moon-night.jpg';
 import AccountMenu from './AccountMenu';
 import ProjectsPanel from '../dashboard/ProjectsPanel';
+import SimulacionesPanel from './SimulacionesPanel';
+import { RutasPanel, NotificacionesPanel, ConfigPanel } from './PanelesBasicos';
 import './Sidebar.css';
 
 // Iconos inline (sin dependencias externas)
@@ -69,13 +71,16 @@ const NAV_ITEMS = [
   { id: 'config', label: 'Configuración', icon: IconGear, tag: 'CONF_SYS' },
 ];
 
+// Pestañas que abren un panel lateral propio (además de 'proyectos').
+const SECTION_IDS = ['simulaciones', 'rutas', 'notificaciones', 'config'];
+
 /**
  * Sidebar estilo SYS_CORE (HUD cyberpunk) para TranSystem-Twins.
  * Se coloca al costado del panel de mapa.
  *
  * Props:
  *  - active: id del item activo (default "mapa")
- *  - onNavigate: (id) => void — se sigue llamando para los ítems que no abren un overlay propio
+ *  - onNavigate: (id) => void — se llama para los ítems que no abren un panel propio (hoy, 'mapa')
  *  - user: { name, role, avatarUrl }
  *  - status: { label, value } — franja inferior (ej. conexión MQTT)
  */
@@ -89,19 +94,29 @@ export default function Sidebar({
   const { mapStyle, toggleMapStyle } = useMapTheme();
   const isDark = mapStyle === 'dark';
 
-  // Overlays controlados desde el Sidebar. Se mantienen mutuamente
-  // excluyentes: abrir uno cierra el otro.
+  // Overlays controlados desde el Sidebar. Son mutuamente excluyentes:
+  // abrir uno cierra los demás.
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [projectsPanelOpen, setProjectsPanelOpen] = useState(false);
+  // 'simulaciones' | 'rutas' | 'notificaciones' | 'config' | null
+  const [sectionPanel, setSectionPanel] = useState(null);
 
   function openAccountMenu() {
     setProjectsPanelOpen(false);
+    setSectionPanel(null);
     setAccountMenuOpen(true);
   }
 
   function openProjectsPanel() {
     setAccountMenuOpen(false);
+    setSectionPanel(null);
     setProjectsPanelOpen(true);
+  }
+
+  function toggleSectionPanel(id) {
+    setAccountMenuOpen(false);
+    setProjectsPanelOpen(false);
+    setSectionPanel((actual) => (actual === id ? null : id));
   }
 
   function handleNavClick(id) {
@@ -109,6 +124,13 @@ export default function Sidebar({
       openProjectsPanel();
       return;
     }
+    if (SECTION_IDS.includes(id)) {
+      toggleSectionPanel(id);
+      return;
+    }
+    // 'mapa': cierra cualquier panel abierto
+    setProjectsPanelOpen(false);
+    setSectionPanel(null);
     onNavigate(id);
   }
 
@@ -119,121 +141,133 @@ export default function Sidebar({
         <div className="tst-sidebar__reticle tst-sidebar__reticle--br" />
         <div className="tst-sidebar__scanline" />
 
-      <header className="tst-sidebar__header">
-        <div className="tst-sidebar__brand">
-          <span className="tst-sidebar__brand-dot" />
-          {!collapsed && (
-            <div className="tst-sidebar__brand-text">
-              <span className="tst-sidebar__brand-title">TST_CORE</span>
-              <span className="tst-sidebar__brand-sub">HOST: NODO_CDMX</span>
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          className="tst-sidebar__toggle"
-          onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? 'Expandir panel' : 'Colapsar panel'}
-        >
-          <span className={collapsed ? 'is-flipped' : ''}>
-            <IconChevron />
-          </span>
-        </button>
-      </header>
-
-      <nav className="tst-sidebar__nav">
-        {NAV_ITEMS.map(({ id, label, icon: Icon, tag, badge, badgeTone }) => {
-          const isActive = id === active || (id === 'proyectos' && projectsPanelOpen);
-          return (
-            <button
-              type="button"
-              key={id}
-              className={`tst-sidebar__item ${isActive ? 'is-active' : ''}`}
-              onClick={() => handleNavClick(id)}
-              title={collapsed ? label : undefined}
-            >
-              <span className="tst-sidebar__item-icon">
-                <Icon />
-              </span>
-              {!collapsed && (
-                <span className="tst-sidebar__item-body">
-                  <span className="tst-sidebar__item-tag">{tag}</span>
-                  <span className="tst-sidebar__item-label">{label}</span>
-                </span>
-              )}
-              {badge && (
-                <span className={`tst-sidebar__badge tst-sidebar__badge--${badgeTone}`}>
-                  {badge}
-                </span>
-              )}
-              {isActive && <span className="tst-sidebar__item-indicator" />}
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="tst-sidebar__spacer" />
-
-      {/* Toggle de estilo de mapa: claro/oscuro. Mismo patrón de "switch"
-          que ya usa el panel de Capas para Red vial (OSM). */}
-      <div className="tst-sidebar__theme-toggle" title="Alternar estilo del mapa">
-        <span className={`tst-sidebar__theme-icon-wrap ${!isDark ? 'is-active' : ''}`}>
-          <img src={sunIcon} alt="Modo claro" className="tst-sidebar__theme-icon" />
-        </span>
-
-        <button
-          type="button"
-          className={`tst-sidebar__switch ${isDark ? 'is-on' : ''}`}
-          onClick={toggleMapStyle}
-          aria-pressed={isDark}
-          aria-label="Alternar modo oscuro del mapa"
-        >
-          <span className="tst-sidebar__switch-knob" />
-        </button>
-
-        <span className={`tst-sidebar__theme-icon-wrap ${isDark ? 'is-active' : ''}`}>
-          <img src={moonIcon} alt="Modo oscuro" className="tst-sidebar__theme-icon" />
-        </span>
-      </div>
-
-      <button
-        type="button"
-        className="tst-sidebar__item tst-sidebar__item--profile"
-        onClick={openAccountMenu}
-        title={collapsed ? 'Perfil' : undefined}
-      >
-        <span className="tst-sidebar__item-icon">
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="tst-sidebar__avatar" />
-          ) : (
-            <IconUser />
-          )}
-        </span>
-        {!collapsed && (
-          <span className="tst-sidebar__item-body">
-            <span className="tst-sidebar__item-label">{user.name}</span>
-            <span className="tst-sidebar__item-tag">{user.role}</span>
-          </span>
-        )}
-      </button>
-
-      <footer className="tst-sidebar__footer">
-        {!collapsed ? (
-          <>
-            <span className="tst-sidebar__footer-dot" />
-            <span className="tst-sidebar__footer-text">
-              {status.label}: {status.value}
+        <header className="tst-sidebar__header">
+          <div className="tst-sidebar__brand">
+            <span className="tst-sidebar__brand-dot" />
+            {!collapsed && (
+              <div className="tst-sidebar__brand-text">
+                <span className="tst-sidebar__brand-title">TST_CORE</span>
+                <span className="tst-sidebar__brand-sub">HOST: NODO_CDMX</span>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="tst-sidebar__toggle"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expandir panel' : 'Colapsar panel'}
+          >
+            <span className={collapsed ? 'is-flipped' : ''}>
+              <IconChevron />
             </span>
-          </>
-        ) : (
-          <span className="tst-sidebar__footer-dot" />
-        )}
-      </footer>
+          </button>
+        </header>
 
-      <AccountMenu isOpen={accountMenuOpen} onClose={() => setAccountMenuOpen(false)} />
+        <nav className="tst-sidebar__nav">
+          {NAV_ITEMS.map(({ id, label, icon: Icon, tag, badge, badgeTone }) => {
+            const isActive =
+              id === sectionPanel ||
+              (id === 'proyectos' && projectsPanelOpen) ||
+              (id === active && !sectionPanel && !projectsPanelOpen);
+            return (
+              <button
+                type="button"
+                key={id}
+                className={`tst-sidebar__item ${isActive ? 'is-active' : ''}`}
+                onClick={() => handleNavClick(id)}
+                title={collapsed ? label : undefined}
+              >
+                <span className="tst-sidebar__item-icon">
+                  <Icon />
+                </span>
+                {!collapsed && (
+                  <span className="tst-sidebar__item-body">
+                    <span className="tst-sidebar__item-tag">{tag}</span>
+                    <span className="tst-sidebar__item-label">{label}</span>
+                  </span>
+                )}
+                {badge && (
+                  <span className={`tst-sidebar__badge tst-sidebar__badge--${badgeTone}`}>
+                    {badge}
+                  </span>
+                )}
+                {isActive && <span className="tst-sidebar__item-indicator" />}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="tst-sidebar__spacer" />
+
+        {/* Toggle de estilo de mapa: claro/oscuro. Mismo patrón de "switch"
+            que ya usa el panel de Capas para Red vial (OSM). */}
+        <div className="tst-sidebar__theme-toggle" title="Alternar estilo del mapa">
+          <span className={`tst-sidebar__theme-icon-wrap ${!isDark ? 'is-active' : ''}`}>
+            <img src={sunIcon} alt="Modo claro" className="tst-sidebar__theme-icon" />
+          </span>
+
+          <button
+            type="button"
+            className={`tst-sidebar__switch ${isDark ? 'is-on' : ''}`}
+            onClick={toggleMapStyle}
+            aria-pressed={isDark}
+            aria-label="Alternar modo oscuro del mapa"
+          >
+            <span className="tst-sidebar__switch-knob" />
+          </button>
+
+          <span className={`tst-sidebar__theme-icon-wrap ${isDark ? 'is-active' : ''}`}>
+            <img src={moonIcon} alt="Modo oscuro" className="tst-sidebar__theme-icon" />
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className="tst-sidebar__item tst-sidebar__item--profile"
+          onClick={openAccountMenu}
+          title={collapsed ? 'Perfil' : undefined}
+        >
+          <span className="tst-sidebar__item-icon">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="tst-sidebar__avatar" />
+            ) : (
+              <IconUser />
+            )}
+          </span>
+          {!collapsed && (
+            <span className="tst-sidebar__item-body">
+              <span className="tst-sidebar__item-label">{user.name}</span>
+              <span className="tst-sidebar__item-tag">{user.role}</span>
+            </span>
+          )}
+        </button>
+
+        <footer className="tst-sidebar__footer">
+          {!collapsed ? (
+            <>
+              <span className="tst-sidebar__footer-dot" />
+              <span className="tst-sidebar__footer-text">
+                {status.label}: {status.value}
+              </span>
+            </>
+          ) : (
+            <span className="tst-sidebar__footer-dot" />
+          )}
+        </footer>
+
+        <AccountMenu isOpen={accountMenuOpen} onClose={() => setAccountMenuOpen(false)} />
       </aside>
 
       <ProjectsPanel isOpen={projectsPanelOpen} onClose={() => setProjectsPanelOpen(false)} />
+
+      {sectionPanel === 'simulaciones' && (
+        <SimulacionesPanel onClose={() => setSectionPanel(null)} />
+      )}
+      {sectionPanel === 'rutas' && <RutasPanel onClose={() => setSectionPanel(null)} />}
+      {sectionPanel === 'notificaciones' && (
+        <NotificacionesPanel onClose={() => setSectionPanel(null)} />
+      )}
+      {sectionPanel === 'config' && <ConfigPanel onClose={() => setSectionPanel(null)} />}
     </>
   );
 }

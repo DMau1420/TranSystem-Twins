@@ -1,0 +1,74 @@
+.resp {
+  padding: 12px;
+}
+.resp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.resp-head .sysb-title {
+  margin: 0;
+}
+.resp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.resp-item {
+  border: 1px solid var(--c-line);
+  background: var(--c-bg-2);
+}
+.resp-item--open {
+  border-color: var(--c-cyan);
+}
+.resp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+}
+.resp-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+.resp-main:focus-visible {
+  outline: 2px solid var(--c-cyan);
+  outline-offset: 2px;
+}
+.resp-date {
+  color: var(--c-text);
+  font-weight: 700;
+}
+.resp-confirm {
+  display: flex;
+  gap: 6px;
+}
+.resp-detail {
+  padding: 8px;
+  border-top: 1px solid var(--c-line);
+  max-height: 260px;
+  overflow: auto;
+}
+.resp-detail th {
+  width: 40%;
+  word-break: break-word;
+}
+.resp-detail td {
+  word-break: break-word;
+}

@@ -52,13 +52,12 @@ function AppLayout() {
             <SimulacionProvider>
               <ResumeActiveScenario />
               <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                {/* Las pestañas Proyectos, Simulaciones, Rutas, Notificaciones y
+                    Configuración abren sus propios paneles dentro del Sidebar.
+                    onNavigate solo recibe 'mapa'. */}
                 <Sidebar
                   active="mapa"
-                  onNavigate={(id) => {
-                    if (id === 'perfil') return; // ajusta cuando exista la página de perfil
-                    // TODO: navegación real entre secciones (simulaciones, rutas, etc.)
-                    console.log('nav ->', id);
-                  }}
+                  onNavigate={() => {}}
                   user={{
                     name: user?.apodo || user?.nombre || user?.name || user?.username || 'Invitado',
                     role: user?.rol ?? user?.role ?? 'VIEWER',

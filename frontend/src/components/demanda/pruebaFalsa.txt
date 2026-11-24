@@ -1,0 +1,5 @@
+edge_origen,edge_destino,veh_h,pct_pesados
+E1,E2,800,10
+E3,E4,450,5.5
+E1,E1,100,0
+E2,E3,abc,200

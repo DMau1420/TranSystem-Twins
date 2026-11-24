@@ -1,0 +1,49 @@
+.flj,
+.csvu {
+  padding: 12px;
+}
+.flj-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.flj-head .sysb-title {
+  margin: 0;
+}
+.flj-num {
+  width: 90px;
+}
+.flj-foot {
+  margin: 8px 0 0;
+}
+/* Solo para lectores de pantalla */
+.flj-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.csvu-drop {
+  padding: 14px;
+  border: 1px dashed var(--c-line);
+  background: var(--c-bg-2);
+}
+.csvu-drop--on {
+  border-color: var(--c-cyan);
+  background: rgba(45, 227, 255, 0.08);
+}
+.csvu-errors {
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid var(--c-line);
+}
+.csvu-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

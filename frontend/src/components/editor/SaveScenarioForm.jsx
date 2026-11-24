@@ -15,7 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProyecto } from '../../context/ProyectoContext';
 import { actualizarProyecto } from '../../api/proyectosApi';
 import { actualizarEscenario } from '../../api/escenariosApi';
-import { listProjects } from '../../scenario/scenarioStorage';
+import { listProjects, saveProject } from '../../scenario/scenarioStorage';
 
 const NEW = '__new__';
 
@@ -128,7 +128,11 @@ export default function SaveScenarioForm({ features }) {
   const { saveNow } = useScenarioSaver();
   const { hydrate } = useMapData();
   const { token } = useAuth();
-  const { recargar: recargarProyectos, recargarEscenarios } = useProyecto();
+  const {
+    proyectos: proyectosBackend,
+    recargar: recargarProyectos,
+    recargarEscenarios,
+  } = useProyecto();
 
   const [projects, setProjects] = useState([]);
   const [editingProject, setEditingProject] = useState(false);
@@ -155,8 +159,17 @@ export default function SaveScenarioForm({ features }) {
   const pending = JSON.stringify(features) !== JSON.stringify(scenario.features) || dirty;
   const saving = saveStatus === 'saving';
   const disabled = saving || (!isSaved && total === 0) || (isSaved && !pending);
+
+  // El proyecto puede vivir en el navegador (lista local) o en el backend (ProyectoContext).
   const currentProject = projects.find((p) => String(p.id) === String(currentProjectId));
-  const projectName = currentProject?.name ?? currentProject?.nombre;
+  const backendProject = (proyectosBackend ?? []).find(
+    (p) => String(p.id) === String(currentProjectId)
+  );
+  const projectName =
+    currentProject?.name ??
+    currentProject?.nombre ??
+    backendProject?.nombre ??
+    backendProject?.name;
 
   const startEditProject = () => {
     setProjNameInput(projectName || '');
@@ -170,13 +183,15 @@ export default function SaveScenarioForm({ features }) {
       return;
     }
     try {
-      if (token && currentProjectId) {
+      if (currentProject) {
+        // Proyecto local: se renombra en el navegador
+        await saveProject({ ...currentProject, name: val, autoNamed: false });
+        setProjects(await listProjects());
+      } else if (token && currentProjectId) {
+        // Proyecto del backend
         await actualizarProyecto(token, currentProjectId, { nombre: val });
+        await recargarProyectos?.();
       }
-      setProjects((prev) =>
-        prev.map((p) => (String(p.id) === String(currentProjectId) ? { ...p, name: val, nombre: val } : p))
-      );
-      recargarProyectos?.();
     } catch (e) {
       console.error('Error actualizando nombre de proyecto:', e);
     } finally {
